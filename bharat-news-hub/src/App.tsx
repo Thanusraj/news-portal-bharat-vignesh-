@@ -12,7 +12,7 @@ import Index from "./pages/Index.tsx";
 const NewsDetail = lazy(() => import("./pages/NewsDetail.tsx"));
 const SearchPage = lazy(() => import("./pages/SearchPage.tsx"));
 const SavedPage = lazy(() => import("./pages/SavedPage.tsx"));
-const TruthLensPage = lazy(() => import("./pages/TruthLensPage.tsx"));
+const NewsBotPage = lazy(() => import("./pages/NewsBotPage.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const Login = lazy(() => import("./pages/Login.tsx"));
 const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
@@ -47,7 +47,7 @@ const App = () => (
                   <Route path="/article" element={<NewsDetail />} />
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/saved" element={<SavedPage />} />
-                  <Route path="/truthlens" element={<TruthLensPage />} />
+                  <Route path="/truthlens" element={<NewsBotPage />} />
                   <Route path="/profile" element={<Profile />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />

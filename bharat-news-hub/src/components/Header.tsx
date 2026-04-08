@@ -135,7 +135,7 @@ const Header = () => {
 
   const navLinks = [
     { to: "/", label: "Home", icon: Home },
-    { to: "/truthlens", label: "Truth Lens AI", icon: Shield },
+    { to: "/truthlens", label: "NewsBot AI", icon: Shield },
     { to: "/saved", label: "Saved", icon: Bookmark },
     { to: "/profile", label: "Profile", icon: UserCircle },
   ];
