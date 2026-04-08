@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import Header from "@/components/Header";
 import ChatSidebar from "@/components/bharatnews/ChatSidebar";
 import NewsMessageCard from "@/components/bharatnews/NewsMessageCard";
 import GeneratingIndicator from "@/components/bharatnews/GeneratingIndicator";
@@ -7,7 +8,7 @@ import WelcomeScreen from "@/components/bharatnews/WelcomeScreen";
 import BharatNewsLogo from "@/components/bharatnews/BharatNewsLogo";
 import type { ChatSession, ChatMessage } from "@/types/newsBot.types";
 import { sendNewsQueryGroq } from "@/services/newsBotApi";
-import { Settings, Wifi } from "lucide-react";
+import { Settings, X } from "lucide-react";
 
 /* ─── localStorage helpers ──────────────────────────────────────── */
 const STORAGE_KEY = "bharatnews_sessions_v2";
@@ -41,7 +42,6 @@ const TICKER_ITEMS = [
 const NewsBotPage: React.FC = () => {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [input, setInput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -254,371 +254,168 @@ const NewsBotPage: React.FC = () => {
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        overflow: "hidden",
-        background:
-          "radial-gradient(ellipse at 20% 0%, rgba(15,28,80,0.6) 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(8,20,60,0.5) 0%, transparent 60%), linear-gradient(160deg, #040916 0%, #060d24 50%, #030810 100%)",
-        fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
-        position: "relative",
-      }}
-    >
-      <style>{`
-        * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.25); border-radius: 2px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.4); }
+    <div className="min-h-screen bg-background">
+      <Header />
 
-        /* Animated constellation dots */
-        @keyframes twinkle {
-          0%,100% { opacity: 0.15; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(1.3); }
-        }
-        @keyframes ticker-scroll {
-          from { transform: translateX(100%); }
-          to { transform: translateX(-200%); }
-        }
-
-        .news-topbar-glow {
-          box-shadow: 0 1px 0 rgba(99,102,241,0.15), 0 4px 20px rgba(0,0,0,0.3);
-        }
-      `}</style>
-
-      {/* Background star particles */}
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          pointerEvents: "none",
-          zIndex: 0,
-          overflow: "hidden",
-        }}
-      >
-        {Array.from({ length: 40 }, (_, i) => (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              width: `${1 + Math.random()}px`,
-              height: `${1 + Math.random()}px`,
-              borderRadius: "50%",
-              background: "white",
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animation: `twinkle ${3 + Math.random() * 4}s ease-in-out infinite`,
-              animationDelay: `${Math.random() * 4}s`,
-            }}
-          />
-        ))}
-      </div>
-
-      {/* ─── SIDEBAR ──────────────────────────────────────────────── */}
-      <div style={{ position: "relative", zIndex: 20, flexShrink: 0 }}>
-        <ChatSidebar
-          sessions={sessions}
-          activeId={activeId}
-          isOpen={sidebarOpen}
-          onToggle={() => setSidebarOpen((o) => !o)}
-          onNewChat={handleNewChat}
-          onSelectSession={setActiveId}
-          onDeleteSession={handleDeleteSession}
-          onPinSession={handlePinSession}
-        />
-      </div>
-
-      {/* ─── MAIN AREA ────────────────────────────────────────────── */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          position: "relative",
-          zIndex: 10,
-        }}
-      >
-        {/* Top bar */}
-        <div
-          className="news-topbar-glow"
-          style={{
-            padding: "12px 20px",
-            borderBottom: "1px solid rgba(255,255,255,0.05)",
-            background: "rgba(4,8,22,0.75)",
-            backdropFilter: "blur(16px)",
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            flexShrink: 0,
-            zIndex: 10,
-          }}
-        >
-          {/* Animated logo — spins when generating */}
-          <BharatNewsLogo size={32} spinning={isGenerating} />
-
-          {/* Title + status */}
-          <div style={{ flexShrink: 0 }}>
-            <span
-              style={{
-                color: "#e2e8f0",
-                fontSize: "15px",
-                fontWeight: 800,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              BharatNews{" "}
-              <span style={{ color: "#FF9933" }}>AI</span>
-            </span>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "5px",
-                marginTop: "1px",
-              }}
-            >
-              <div
-                style={{
-                  width: "6px",
-                  height: "6px",
-                  borderRadius: "50%",
-                  background: isGenerating ? "#fbbf24" : "#22c55e",
-                  animation: isGenerating
-                    ? "twinkle 0.8s ease-in-out infinite"
-                    : "none",
-                }}
-              />
-              <span
-                style={{
-                  color: isGenerating ? "#fbbf24" : "#22c55e",
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                }}
+      <main className="container mx-auto px-4 py-8">
+        <div className="flex gap-6 h-[calc(100vh-200px)]">
+          {/* Sidebar - Hidden on mobile */}
+          <div className="hidden lg:block lg:w-64 flex-shrink-0">
+            <div className="bg-card rounded-2xl border border-border p-4 h-full overflow-y-auto">
+              <button
+                onClick={handleNewChat}
+                className="w-full mb-4 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
               >
-                {isGenerating ? "GATHERING NEWS" : "LIVE"}
-              </span>
+                + New Chat
+              </button>
+
+              <ChatSidebar
+                sessions={sessions}
+                activeId={activeId}
+                isOpen={true}
+                onToggle={() => {}}
+                onNewChat={handleNewChat}
+                onSelectSession={setActiveId}
+                onDeleteSession={handleDeleteSession}
+                onPinSession={handlePinSession}
+              />
             </div>
           </div>
 
-          {/* Scrolling news ticker */}
-          <div
-            style={{
-              flex: 1,
-              overflow: "hidden",
-              height: "18px",
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            <div
-              style={{
-                whiteSpace: "nowrap",
-                animation: "ticker-scroll 28s linear infinite",
-                color: "#334155",
-                fontSize: "11px",
-              }}
-            >
-              {TICKER_ITEMS.join("  ·  ")}
-            </div>
-          </div>
-
-          {/* WiFi icon */}
-          <Wifi size={14} style={{ color: isGenerating ? "#fbbf24" : "#22c55e", flexShrink: 0 }} />
-
-          {/* Settings */}
-          <button
-            onClick={() => {
-              setTempApiKey(apiKey);
-              setShowApiModal(true);
-            }}
-            style={{
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.07)",
-              borderRadius: "8px",
-              padding: "6px",
-              cursor: "pointer",
-              color: "#475569",
-              display: "flex",
-              alignItems: "center",
-              flexShrink: 0,
-              transition: "all 0.2s",
-            }}
-            title="API Settings"
-          >
-            <Settings size={14} />
-          </button>
-        </div>
-
-        {/* Messages area */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "24px 28px 8px",
-          }}
-        >
-          {/* Welcome screen */}
-          {messages.length === 0 && !isGenerating && (
-            <WelcomeScreen
-              onTopicClick={(topic) => {
-                setInput(topic);
-              }}
-            />
-          )}
-
-          {/* Messages */}
-          {messages.map((msg) => (
-            <NewsMessageCard
-              key={msg.id}
-              message={msg}
-              onFollowUp={handleFollowUp}
-            />
-          ))}
-
-          {/* Generating indicator */}
-          {isGenerating && <GeneratingIndicator />}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input */}
-        <ChatInput
-          value={input}
-          onChange={setInput}
-          onSubmit={handleSend}
-          isLoading={isGenerating}
-        />
-      </div>
-
-      {/* ─── API KEY MODAL ─────────────────────────────────────────── */}
-      {showApiModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.7)",
-            backdropFilter: "blur(8px)",
-            zIndex: 100,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowApiModal(false);
-          }}
-        >
-          <div
-            style={{
-              background:
-                "linear-gradient(145deg, rgba(12,18,50,0.97), rgba(6,10,28,0.98))",
-              backdropFilter: "blur(24px)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderTop: "2px solid #FF9933",
-              borderRadius: "20px",
-              padding: "28px 28px 24px",
-              width: "100%",
-              maxWidth: "440px",
-              boxShadow: "0 24px 80px rgba(0,0,0,0.5)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
-              <BharatNewsLogo size={36} />
-              <div>
-                <div style={{ color: "#f1f5f9", fontSize: "17px", fontWeight: 800 }}>
-                  API Configuration
+          {/* Main Chat Area */}
+          <div className="flex-1 flex flex-col gap-4">
+            {/* Chat Header */}
+            <div className="bg-card rounded-2xl border border-border p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <BharatNewsLogo size={28} spinning={isGenerating} />
+                  <div>
+                    <h1 className="text-lg font-bold text-foreground">
+                      BharatNews <span className="text-orange-500">AI</span>
+                    </h1>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`w-2.5 h-2.5 rounded-full ${
+                          isGenerating
+                            ? "bg-amber-400 animate-pulse"
+                            : "bg-green-500"
+                        }`}
+                      />
+                      <span
+                        className={`text-xs font-semibold ${
+                          isGenerating
+                            ? "text-amber-400"
+                            : "text-green-500"
+                        }`}
+                      >
+                        {isGenerating ? "Generating..." : "Ready"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ color: "#475569", fontSize: "12px" }}>
-                  Configure your Anthropic API key
-                </div>
+                <button
+                  onClick={() => setShowApiModal(true)}
+                  className="p-2.5 rounded-lg hover:bg-muted transition-colors"
+                  aria-label="Settings"
+                >
+                  <Settings className="w-5 h-5 text-muted-foreground" />
+                </button>
               </div>
             </div>
 
-            <p style={{ color: "#64748b", fontSize: "13px", lineHeight: 1.7, marginBottom: "18px" }}>
-              BharatNews AI uses the Claude API to generate news briefings.
-              Your API key is stored locally and never sent to any external server.
+            {/* Messages Container */}
+            <div className="flex-1 bg-card rounded-2xl border border-border overflow-hidden flex flex-col">
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {messages.length === 0 ? (
+                  <WelcomeScreen
+                    onExampleClick={(text) => setInput(text)}
+                  />
+                ) : (
+                  <>
+                    {messages.map((msg) => (
+                      <NewsMessageCard
+                        key={msg.id}
+                        message={msg}
+                        onFollowUp={handleFollowUp}
+                      />
+                    ))}
+                    {isGenerating && <GeneratingIndicator />}
+                    <div ref={messagesEndRef} />
+                  </>
+                )}
+              </div>
+
+              {/* Input Area */}
+              <div className="border-t border-border p-4 bg-muted/30">
+                <ChatInput
+                  input={input}
+                  onChange={(text) => setInput(text)}
+                  onSubmit={handleSend}
+                  isLoading={isGenerating}
+                  error={error}
+                  onClearError={() => setError(null)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* API Key Modal */}
+      {showApiModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl border border-border p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-foreground">
+                API Key Setup
+              </h2>
+              <button
+                onClick={() => setShowApiModal(false)}
+                className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-4">
+              Enter your Groq API key to enable the chatbot
             </p>
 
-            <label
-              style={{
-                color: "#94a3b8",
-                fontSize: "12px",
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                display: "block",
-                marginBottom: "8px",
-              }}
-            >
-              Anthropic API Key
-            </label>
             <input
               type="password"
               value={tempApiKey}
               onChange={(e) => setTempApiKey(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSaveApiKey()}
-              placeholder="sk-ant-..."
-              style={{
-                width: "100%",
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "10px",
-                padding: "11px 14px",
-                color: "#e2e8f0",
-                fontSize: "14px",
-                outline: "none",
-                marginBottom: "8px",
-                fontFamily: "monospace",
-              }}
+              placeholder="gsk_..."
+              className="w-full px-4 py-2 rounded-lg bg-muted border border-border text-foreground text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
-            <p style={{ color: "#334155", fontSize: "11px", marginBottom: "20px" }}>
+
+            <p className="text-xs text-muted-foreground mb-4">
               Get your key at{" "}
               <a
-                href="https://console.anthropic.com"
+                href="https://console.groq.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: "#6366f1" }}
+                className="text-primary hover:underline"
               >
-                console.anthropic.com
+                console.groq.com
               </a>
             </p>
 
-            <div style={{ display: "flex", gap: "10px" }}>
+            <div className="flex gap-3">
               <button
                 onClick={() => setShowApiModal(false)}
-                style={{
-                  flex: 1,
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: "10px",
-                  padding: "11px",
-                  color: "#64748b",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
+                className="flex-1 px-4 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition-colors text-sm font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveApiKey}
-                style={{
-                  flex: 2,
-                  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                  border: "none",
-                  borderRadius: "10px",
-                  padding: "11px",
-                  color: "white",
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  boxShadow: "0 4px 16px rgba(99,102,241,0.3)",
-                }}
+                disabled={!tempApiKey.trim()}
+                className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity text-sm font-semibold"
               >
-                Save & Continue
+                Save
               </button>
             </div>
           </div>
