@@ -1,3 +1,4 @@
+
 import { ApiKeys } from "@/types/analysis";
 
 export function getApiKeys(): ApiKeys {
@@ -6,6 +7,7 @@ export function getApiKeys(): ApiKeys {
     groq: import.meta.env.VITE_GROQ_API_KEY || "",
     huggingFace: import.meta.env.VITE_HUGGINGFACE_TOKEN || "",
     newsApi: import.meta.env.VITE_NEWSAPI_TRUTHLENS_KEY || "",
+    scraperApi: import.meta.env.VITE_SCRAPER_API_KEY || "",
   };
 }
 

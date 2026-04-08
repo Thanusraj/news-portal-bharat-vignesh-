@@ -1,61 +1,56 @@
 import { AnalysisResult, ApiKeys, EvidenceSource } from "@/types/analysis";
 import { searchWikipedia } from "./truthlensWikipedia";
 import { searchNews } from "./truthlensNewsApi";
-import { extractClaim, generateReasoning } from "./groq";
-import { getFinalVerdict } from "./truthlensOpenRouter";
+import { extractTopic, buildNewsBriefGroq } from "./groq";
+import { fetchFullArticle } from "./scraperApi";
 
 export async function analyzeClaim(
   input: string,
   apiKeys: ApiKeys,
   onProgress?: (step: string) => void
 ): Promise<AnalysisResult> {
-  onProgress?.("Extracting claim...");
-  const claim = await extractClaim(input, apiKeys.groq);
+  onProgress?.("Extracting topic...");
+  const topic = await extractTopic(input, apiKeys.groq);
 
-  onProgress?.("Gathering evidence...");
+  onProgress?.("Gathering breaking news...");
   const [wikiResults, newsResults] = await Promise.all([
-    searchWikipedia(claim),
-    searchNews(claim, apiKeys.newsApi),
+    searchWikipedia(topic),
+    searchNews(topic, apiKeys.newsApi),
   ]);
 
   const allEvidence: EvidenceSource[] = [...wikiResults, ...newsResults];
+  
+  let deepContext = "";
+  // Use ScraperAPI to fetch full text of the top news article if available
+  if (newsResults.length > 0 && newsResults[0].url) {
+    onProgress?.("Deep reading top article...");
+    try {
+      const fullArticle = await fetchFullArticle(newsResults[0].url);
+      deepContext = `\n\nDeep Context from top article (${newsResults[0].title}):\n${fullArticle.excerpt}\n...\n${fullArticle.textContent.slice(0, 2000)}`;
+      allEvidence.push({
+        title: `Deep Read: ${newsResults[0].title}`,
+        url: newsResults[0].url,
+        snippet: fullArticle.excerpt,
+        source: "scraper",
+      });
+    } catch (e) {
+      console.warn("ScraperAPI failed to deep read:", e);
+    }
+  }
 
   const evidenceSummary = allEvidence
+    .filter(e => e.source !== 'scraper') // Avoid duplicating the top article snippet since we pass deepContext
     .map((e, i) => `[${i + 1}] (${e.source}) ${e.title}: ${e.snippet}`)
     .join("\n");
 
-  onProgress?.("Analyzing evidence...");
-  const reasoning = await generateReasoning(claim, evidenceSummary, apiKeys.groq);
-
-  onProgress?.("Generating final verdict...");
-  const verdict = await getFinalVerdict(claim, reasoning, evidenceSummary, apiKeys.openRouter);
-
-  // Classify evidence stances based on verdict
-  const classifiedEvidence = allEvidence.map((e) => ({
-    ...e,
-    stance: classifyStance(e.snippet, verdict.verdict) as "supports" | "contradicts" | "neutral",
-  }));
+  onProgress?.("Analyzing and summarizing...");
+  const brief = await buildNewsBriefGroq(topic, evidenceSummary + deepContext, apiKeys.groq);
 
   return {
-    verdict: verdict.verdict,
-    confidence: verdict.confidence,
-    reasons: verdict.reasons,
-    evidence: classifiedEvidence,
-    simplifiedExplanation: verdict.simplifiedExplanation,
-    rawClaim: claim,
+    sentiment: brief.sentiment || "Neutral",
+    summary: brief.summary || "No summary could be generated.",
+    takeaways: brief.takeaways || [],
+    evidence: allEvidence,
+    rawQuery: topic,
   };
-}
-
-function classifyStance(snippet: string, verdict: string): string {
-  // Simple heuristic - in production you'd use NLP
-  const lower = snippet.toLowerCase();
-  const negativeWords = ["false", "debunked", "misleading", "incorrect", "hoax", "fake", "denied"];
-  const positiveWords = ["confirmed", "verified", "true", "correct", "accurate", "proven"];
-  
-  const hasNeg = negativeWords.some((w) => lower.includes(w));
-  const hasPos = positiveWords.some((w) => lower.includes(w));
-
-  if (hasNeg && !hasPos) return "contradicts";
-  if (hasPos && !hasNeg) return "supports";
-  return "neutral";
 }

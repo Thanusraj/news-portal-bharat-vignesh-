@@ -1,0 +1,413 @@
+{
+  "name": "Hourly India News Aggregator and Database Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "id": "11ca6de3-7acd-4828-b156-4757c95404f7",
+      "name": "Every Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        240,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "url": "<__PLACEHOLDER_VALUE__https://gnews.io/api/v4/top-headlines?country=in&lang=en&apikey=YOUR_API_KEY__>",
+        "options": {}
+      },
+      "id": "cabadf31-7509-414a-9ff8-3bcd8fe939e2",
+      "name": "Fetch GNews API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        464,
+        280
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "a5b96c2c-135c-4a46-a984-b687b4005319",
+      "name": "Combine News Sources",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        912,
+        504
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "empty",
+              "name": "articles",
+              "value": [],
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "96a737b5-7778-440b-a65b-a9ca81ba4529",
+      "name": "Handle GNews Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        688,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "url": "<__PLACEHOLDER_VALUE__https://newsapi.org/v2/top-headlines?country=in&apikey=YOUR_API_KEY__>",
+        "options": {}
+      },
+      "id": "c0fbc869-c0dd-4fd2-aaaa-242b9b60c859",
+      "name": "Fetch NewsAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        464,
+        520
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "empty",
+              "name": "articles",
+              "value": [],
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7ccf4dd9-e314-46fe-ad2a-f23a1cc48961",
+      "name": "Handle NewsAPI Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        688,
+        592
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "title",
+              "name": "title",
+              "value": "={{ $json.articles[0].title }}",
+              "type": "string"
+            },
+            {
+              "id": "description",
+              "name": "description",
+              "value": "={{ $json.articles[0].description }}",
+              "type": "string"
+            },
+            {
+              "id": "url",
+              "name": "url",
+              "value": "={{ $json.articles[0].url || $json.articles[0].link }}",
+              "type": "string"
+            },
+            {
+              "id": "image",
+              "name": "image",
+              "value": "={{ $json.articles[0].image || $json.articles[0].urlToImage || $json.articles[0].image_url }}",
+              "type": "string"
+            },
+            {
+              "id": "source",
+              "name": "source",
+              "value": "={{ $json.articles[0].source.name || $json.articles[0].source_id }}",
+              "type": "string"
+            },
+            {
+              "id": "publishedAt",
+              "name": "publishedAt",
+              "value": "={{ $json.articles[0].publishedAt || $json.articles[0].pubDate }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7c7a0338-18b7-482b-be79-a31e2eb99f6e",
+      "name": "Standardize Article Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1136,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "compare": "selectedFields",
+        "fieldsToCompare": "title",
+        "options": {
+          "disableDotNotation": false,
+          "removeOtherFields": false
+        }
+      },
+      "id": "081972fd-f538-4c41-a531-04e69857bbe6",
+      "name": "Remove Duplicate Articles",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 1.1,
+      "position": [
+        1360,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "tableId": "<__PLACEHOLDER_VALUE__news__>",
+        "filterType": "string",
+        "filterString": "={{ \"publishedAt.lt.\" + $now.minus({ days: 1 }).toISO() }}"
+      },
+      "id": "d07ae95a-0ba5-442b-8815-6646181cf453",
+      "name": "Delete Old Articles",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1584,
+        520
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "tableId": "<__PLACEHOLDER_VALUE__news__>",
+        "dataToSend": "autoMapInputData"
+      },
+      "id": "78175188-1699-467e-b5dd-24c7ef4fd305",
+      "name": "Insert Articles",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1808,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "url": "<__PLACEHOLDER_VALUE__https://newsdata.io/api/1/news?country=in&language=en&apikey=YOUR_API_KEY__>",
+        "options": {}
+      },
+      "id": "a9fee5b6-7655-46c4-bd09-61f8c3a7f1ab",
+      "name": "Fetch NewsData.io",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        464,
+        808
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "empty",
+              "name": "articles",
+              "value": [],
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e68397e8-00f2-4145-9fc1-0cf56f565f18",
+      "name": "Handle NewsData Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        688,
+        880
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Every Hour": {
+      "main": [
+        [
+          {
+            "node": "Fetch GNews API",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch NewsAPI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch NewsData.io",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch GNews API": {
+      "main": [
+        [
+          {
+            "node": "Combine News Sources",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Handle GNews Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine News Sources": {
+      "main": [
+        [
+          {
+            "node": "Standardize Article Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle GNews Error": {
+      "main": [
+        [
+          {
+            "node": "Combine News Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch NewsAPI": {
+      "main": [
+        [
+          {
+            "node": "Combine News Sources",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Handle NewsAPI Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle NewsAPI Error": {
+      "main": [
+        [
+          {
+            "node": "Combine News Sources",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Standardize Article Fields": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicate Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicate Articles": {
+      "main": [
+        [
+          {
+            "node": "Delete Old Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Old Articles": {
+      "main": [
+        [
+          {
+            "node": "Insert Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch NewsData.io": {
+      "main": [
+        [
+          {
+            "node": "Combine News Sources",
+            "type": "main",
+            "index": 2
+          },
+          {
+            "node": "Handle NewsData Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle NewsData Error": {
+      "main": [
+        [
+          {
+            "node": "Combine News Sources",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "5422f29a-91ff-45f2-9fe9-1f146b21404f",
+  "meta": {
+    "instanceId": "7cbb6c74c33689056f14f9625bd3749adbc9ff6b0e6b69b0152fd493351fb962"
+  },
+  "id": "F7LzjaS4HtQpaWgT",
+  "tags": []
+}

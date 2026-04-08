@@ -7,24 +7,24 @@ interface VerdictResult {
   simplifiedExplanation: string;
 }
 
+/**
+ * Uses OpenRouter's `openrouter/free` auto-router.
+ * This special model ID automatically picks whatever free model is currently
+ * available on their platform — it can never 404.
+ */
+const FREE_MODEL = "openrouter/free";
+
 export async function getFinalVerdict(
   claim: string,
   reasoning: string,
   evidenceSummary: string,
   apiKey: string
 ): Promise<VerdictResult> {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.0-flash-001",
-      messages: [
-        {
-          role: "system",
-          content: `You are TruthLens AI, an expert fake news detection system.
+  const body = {
+    messages: [
+      {
+        role: "system",
+        content: `You are TruthLens AI, an expert fake news detection system.
 
 Your job is to evaluate the ORIGINAL CLAIM, not the explanation.
 
@@ -59,37 +59,59 @@ IMPORTANT:
 - Base answer ONLY on provided data + general knowledge
 - For 'reasons', provide actual factual statements. DO NOT use meta-statements like "Multiple sources say" or "Article [2] confirms". Write direct facts.
 ONLY output valid JSON, nothing else.`,
-        },
-        {
-          role: "user",
-          content: `Claim: "${claim}"\n\nFact Check Results & Reasoning:\n${reasoning}\n\nNews Sources & Wikipedia Evidence:\n${evidenceSummary}`,
-        },
-      ],
-      temperature: 0.2,
-      max_tokens: 800,
-    }),
-  });
-
-  if (!res.ok) throw new Error(`OpenRouter API error: ${res.status}`);
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content || "{}";
+      },
+      {
+        role: "user",
+        content: `Claim: "${claim}"\n\nFact Check Results & Reasoning:\n${reasoning}\n\nNews Sources & Wikipedia Evidence:\n${evidenceSummary}`,
+      },
+    ],
+    temperature: 0.2,
+    max_tokens: 800,
+  };
 
   try {
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON found");
-    const parsed = JSON.parse(jsonMatch[0]);
-    return {
-      verdict: parsed.verdict || "Unverified",
-      confidence: Math.min(100, Math.max(0, parsed.confidence || 50)),
-      reasons: parsed.reasons || ["Unable to determine reasons"],
-      simplifiedExplanation: parsed.simplifiedExplanation || "",
-    };
-  } catch {
-    return {
-      verdict: "Unverified",
-      confidence: 50,
-      reasons: ["Could not parse AI response"],
-      simplifiedExplanation: "We couldn't fully verify this claim.",
-    };
+    console.log(`[TruthLens OpenRouter] Calling free auto-router...`);
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "Bharat News TruthLens",
+      },
+      body: JSON.stringify({ model: FREE_MODEL, ...body }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("[TruthLens] OpenRouter raw error:", errText);
+      throw new Error(`OpenRouter API error: ${res.status}`);
+    }
+
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || "{}";
+    console.log(`[TruthLens] Success!`);
+
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("No JSON found");
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        verdict: parsed.verdict || "Unverified",
+        confidence: Math.min(100, Math.max(0, parsed.confidence || 50)),
+        reasons: parsed.reasons || ["Unable to determine reasons"],
+        simplifiedExplanation: parsed.simplifiedExplanation || "",
+      };
+    } catch {
+      return {
+        verdict: "Unverified",
+        confidence: 50,
+        reasons: ["Could not parse AI response"],
+        simplifiedExplanation: "We couldn't fully verify this claim.",
+      };
+    }
+  } catch (err: any) {
+    throw new Error(`OpenRouter model failed: ${err.message}`);
   }
 }
+

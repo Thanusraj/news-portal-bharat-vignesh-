@@ -13,7 +13,7 @@ export interface ScrapedArticle {
 export async function fetchFullArticle(url: string): Promise<ScrapedArticle> {
   const targetUrl = encodeURIComponent(url);
   // Add cors=true to ensure the browser doesn't block the ScraperAPI response
-  const scraperUrl = `https://api.scraperapi.com?api_key=${SCRAPER_API_KEY}&url=${targetUrl}&render=false&cors=true`;
+  const scraperUrl = `/api/scraper?api_key=${SCRAPER_API_KEY}&url=${targetUrl}&render=false&cors=true`;
 
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), 4000); // 4s timeout max for super fast fallback

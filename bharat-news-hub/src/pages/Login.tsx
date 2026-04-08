@@ -123,16 +123,13 @@ const Login = () => {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-px bg-gradient-to-r from-transparent via-white/80 dark:via-white/30 to-transparent" />
 
         <div className="flex flex-col items-center mb-8 relative z-20">
-          <motion.div 
-            initial={{ scale: 0, rotate: -20 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.2 }}
-            className="w-16 h-16 rounded-[1.2rem] bg-gradient-to-br from-indigo-500 via-purple-500 to-teal-400 p-px shadow-lg shadow-indigo-500/20 mb-5 relative group cursor-default"
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mb-4"
           >
-            <div className="w-full h-full bg-white/90 dark:bg-black/40 backdrop-blur-sm rounded-[1.1rem] flex items-center justify-center overflow-hidden transition-colors">
-              <div className="absolute inset-0 bg-white/50 dark:bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <Newspaper className="w-8 h-8 text-indigo-600 dark:text-white relative z-10" />
-            </div>
+            <img src="/logo.png" alt="Bharat News" className="h-[120px] w-auto object-contain drop-shadow-lg" />
           </motion.div>
           
           <motion.div
@@ -141,9 +138,6 @@ const Login = () => {
             transition={{ delay: 0.3 }}
             className="text-center"
           >
-            <h1 className="text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-gray-900 via-indigo-800 to-gray-800 dark:from-white dark:via-indigo-100 dark:to-white/70 mb-2">
-              Bharat News
-            </h1>
             <p className="text-gray-600 dark:text-zinc-400 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors">
               <Sparkles className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" /> Premium AI Curation
             </p>

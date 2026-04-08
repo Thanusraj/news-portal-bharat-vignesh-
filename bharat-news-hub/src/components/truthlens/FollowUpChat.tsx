@@ -1,15 +1,14 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, MessageCircle, Sparkles } from "lucide-react";
+import { Send, MessageCircle, Sparkles } from "lucide-react";
 import { ChatMessage } from "@/types/analysis";
 
 interface FollowUpChatProps {
   messages: ChatMessage[];
   onSend: (message: string) => void;
   isLoading: boolean;
-  verdict: string;
 }
 
-const FollowUpChat = ({ messages, onSend, isLoading, verdict }: FollowUpChatProps) => {
+const FollowUpChat = ({ messages, onSend, isLoading }: FollowUpChatProps) => {
   const [input, setInput] = useState("");
   const [focused, setFocused] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -26,14 +25,10 @@ const FollowUpChat = ({ messages, onSend, isLoading, verdict }: FollowUpChatProp
   };
 
   const quickActions = [
-    verdict === "False"
-      ? "Why is it false?"
-      : verdict === "Partially True"
-        ? "Why is it partially true?"
-        : "Why is it true?",
-    "Give more sources",
+    "What are the main causes?",
+    "Give more context",
     "Explain simply",
-    "What's the full story?",
+    "What's the future outlook?",
   ];
 
   return (
@@ -60,7 +55,7 @@ const FollowUpChat = ({ messages, onSend, isLoading, verdict }: FollowUpChatProp
             <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-indigo-500" />
             </div>
-            <p className="text-sm text-gray-500">Ask follow-up questions about the analysis</p>
+            <p className="text-sm text-gray-500">Ask follow-up questions about this topic</p>
             <div className="flex flex-wrap gap-2 justify-center">
               {quickActions.map((action) => (
                 <button
@@ -136,5 +131,4 @@ const FollowUpChat = ({ messages, onSend, isLoading, verdict }: FollowUpChatProp
     </div>
   );
 };
-
 export default FollowUpChat;

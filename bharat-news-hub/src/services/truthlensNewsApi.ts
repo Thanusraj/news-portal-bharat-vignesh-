@@ -4,7 +4,7 @@ export async function searchNews(query: string, apiKey: string): Promise<Evidenc
   if (!apiKey) return [];
   try {
     const res = await fetch(
-      `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=relevancy&pageSize=5&apiKey=${apiKey}`
+      `/api/newsapi/v2/everything?q=${encodeURIComponent(query)}&sortBy=relevancy&pageSize=5&apiKey=${apiKey}`
     );
     const data = await res.json();
     if (data.status !== "ok") return [];

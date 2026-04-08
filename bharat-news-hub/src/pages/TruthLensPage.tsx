@@ -9,7 +9,7 @@ import { AnalysisResult, ChatMessage } from "@/types/analysis";
 import { getApiKeys, hasRequiredKeys } from "@/services/apiKeys";
 import { analyzeClaim } from "@/services/analyzeClaim";
 import { followUpChat } from "@/services/groq";
-import { Shield, Key, Sparkles, Zap, Eye, Brain } from "lucide-react";
+import { Shield, Key, Sparkles, Zap, Eye, Brain, Bot, Newspaper } from "lucide-react";
 
 const TruthLensPage = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -33,10 +33,11 @@ const TruthLensPage = () => {
 
     try {
       const keys = getApiKeys();
+      // analyzeClaim is now repurposed as getNewsBrief internally
       const analysis = await analyzeClaim(input, keys, setProgress);
       setResult(analysis);
     } catch (err: any) {
-      setError(err.message || "Analysis failed. Check your API keys and try again.");
+      setError(err.message || "Request failed. Check your API keys and try again.");
     } finally {
       setIsAnalyzing(false);
       setProgress("");
@@ -58,9 +59,9 @@ const TruthLensPage = () => {
       setIsChatLoading(true);
 
       try {
-        const context = `Verdict: ${result.verdict} (${result.confidence}%)\nReasons: ${result.reasons.join("; ")}`;
+        const context = `Sentiment: ${result.sentiment}\nSummary: ${result.summary}\nTakeaways: ${result.takeaways.join("; ")}`;
         const history = chatMessages.map((m) => ({ role: m.role, content: m.content }));
-        const reply = await followUpChat(result.rawClaim, context, message, history, keys.groq);
+        const reply = await followUpChat(result.rawQuery, context, message, history, keys.groq);
 
         const assistantMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
@@ -106,7 +107,7 @@ const TruthLensPage = () => {
         {/* ═══════════ HERO SECTION ═══════════ */}
         {!result && !isAnalyzing && (
           <div className="text-center pt-8 pb-4 space-y-6">
-            {/* Animated Shield Icon */}
+            {/* Animated Icon */}
             <div className="relative w-24 h-24 mx-auto">
               {/* Outer rotating ring */}
               <div className="absolute inset-0 rounded-full border-2 border-dashed border-indigo-300/50 animate-[spin_20s_linear_infinite]" />
@@ -114,7 +115,7 @@ const TruthLensPage = () => {
               <div className="absolute inset-2 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 animate-[pulse_3s_ease-in-out_infinite]" />
               {/* Inner icon */}
               <div className="absolute inset-4 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-xl shadow-indigo-500/30">
-                <Shield className="w-8 h-8 text-white" />
+                <Bot className="w-8 h-8 text-white" />
               </div>
               {/* Floating sparkles */}
               <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center animate-bounce shadow-lg shadow-amber-400/30">
@@ -125,21 +126,21 @@ const TruthLensPage = () => {
             {/* Title with gradient */}
             <div className="space-y-3">
               <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight">
-                <span className="text-gray-800">Truth</span>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500">Lens</span>
+                <span className="text-gray-800">News</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500">Bot</span>
                 <span className="text-gray-400 text-2xl md:text-3xl ml-2 font-bold">AI</span>
               </h2>
               <p className="text-gray-500 max-w-lg mx-auto text-base leading-relaxed">
-                Multi-source fact-checking powered by advanced AI. Paste any claim, headline, or URL and receive an instant verdict backed by real evidence.
+                Smart news gathering powered by advanced AI. Ask for any topic or latest updates and receive an instant, professional briefing.
               </p>
             </div>
 
             {/* Feature pills */}
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               {[
-                { icon: Zap, label: "Instant Analysis", color: "from-amber-500 to-orange-500" },
-                { icon: Eye, label: "Multi-Source Verification", color: "from-emerald-500 to-teal-500" },
-                { icon: Brain, label: "AI-Powered Reasoning", color: "from-indigo-500 to-purple-500" },
+                { icon: Zap, label: "Live Fetching", color: "from-amber-500 to-orange-500" },
+                { icon: Newspaper, label: "Deep Reading", color: "from-emerald-500 to-teal-500" },
+                { icon: Brain, label: "Sentiment AI", color: "from-indigo-500 to-purple-500" },
               ].map((feat) => (
                 <div
                   key={feat.label}
@@ -167,7 +168,9 @@ const TruthLensPage = () => {
         )}
 
         {/* ═══════════ CLAIM INPUT (always visible) ═══════════ */}
-        <ClaimInput onSubmit={handleAnalyze} isLoading={isAnalyzing} progressMessage={progress} />
+        <div className={result ? "mt-4" : ""}>
+            <ClaimInput onSubmit={handleAnalyze} isLoading={isAnalyzing} progressMessage={progress} />
+        </div>
 
         {/* ═══════════ ANALYZING OVERLAY ═══════════ */}
         {isAnalyzing && (
@@ -189,13 +192,13 @@ const TruthLensPage = () => {
                      style={{ borderBottomColor: '#a855f7' }} />
                 {/* Inner icon */}
                 <div className="absolute inset-6 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-xl shadow-indigo-500/40 animate-pulse">
-                  <Shield className="w-8 h-8 text-white" />
+                  <Bot className="w-8 h-8 text-white" />
                 </div>
               </div>
               
               {/* Progress text */}
               <div className="text-center space-y-3">
-                <p className="text-xl font-bold text-gray-800 tracking-tight">Analyzing Claim</p>
+                <p className="text-xl font-bold text-gray-800 tracking-tight">Gathering News</p>
                 {progress && (
                   <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-white/80 border border-indigo-100 shadow-sm backdrop-blur-sm">
                     <div className="flex gap-1">
@@ -219,7 +222,7 @@ const TruthLensPage = () => {
                 <span className="text-red-500 text-lg">!</span>
               </div>
               <div>
-                <p className="text-sm font-semibold text-red-700 mb-1">Analysis Failed</p>
+                <p className="text-sm font-semibold text-red-700 mb-1">Could not fetch news</p>
                 <p className="text-sm text-red-600/80">{error}</p>
               </div>
             </div>
@@ -228,10 +231,10 @@ const TruthLensPage = () => {
 
         {/* ═══════════ RESULTS ═══════════ */}
         {result && (
-          <div className="space-y-6">
+          <div className="space-y-6 pb-20">
             <ResultCard result={result} />
             <EvidenceSection evidence={result.evidence} />
-            <FollowUpChat messages={chatMessages} onSend={handleFollowUp} isLoading={isChatLoading} verdict={result.verdict} />
+            <FollowUpChat messages={chatMessages} onSend={handleFollowUp} isLoading={isChatLoading} />
           </div>
         )}
       </main>

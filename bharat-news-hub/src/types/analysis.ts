@@ -1,20 +1,22 @@
-export type Verdict = "True" | "False" | "Partially True" | "Unverified";
+export type Sentiment = "Positive" | "Negative" | "Neutral" | "Mixed";
 
 export interface EvidenceSource {
   title: string;
   url?: string;
   snippet: string;
-  stance: "supports" | "contradicts" | "neutral";
-  source: "news" | "factcheck" | "wikipedia";
+  source: "news" | "wikipedia" | "scraper";
 }
 
 export interface AnalysisResult {
-  verdict: Verdict;
-  confidence: number;
-  reasons: string[];
+  sentiment: Sentiment;
+  summary: string;
+  takeaways: string[];
   evidence: EvidenceSource[];
-  simplifiedExplanation?: string;
-  rawClaim: string;
+  rawQuery: string;
+  // For backwards compatibility or existing UI code until updated
+  verdict?: string; 
+  reasons?: string[];
+  confidence?: number;
 }
 
 export interface ChatMessage {
@@ -30,4 +32,5 @@ export interface ApiKeys {
   groq: string;
   huggingFace: string;
   newsApi: string;
+  scraperApi: string;
 }

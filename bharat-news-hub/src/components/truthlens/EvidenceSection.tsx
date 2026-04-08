@@ -1,5 +1,5 @@
 import { EvidenceSource } from "@/types/analysis";
-import { ExternalLink, ThumbsUp, ThumbsDown, Minus, Newspaper, CheckCheck, BookOpen } from "lucide-react";
+import { ExternalLink, Newspaper, BookOpen, Search } from "lucide-react";
 
 interface EvidenceSectionProps {
   evidence: EvidenceSource[];
@@ -8,33 +8,9 @@ interface EvidenceSectionProps {
 const EvidenceSection = ({ evidence }: EvidenceSectionProps) => {
   if (!evidence.length) return null;
 
-  const stanceConfig = {
-    supports: {
-      icon: <ThumbsUp className="w-3.5 h-3.5" />,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
-      border: "border-emerald-200",
-      label: "Supports",
-    },
-    contradicts: {
-      icon: <ThumbsDown className="w-3.5 h-3.5" />,
-      color: "text-red-500",
-      bg: "bg-red-50",
-      border: "border-red-200",
-      label: "Contradicts",
-    },
-    neutral: {
-      icon: <Minus className="w-3.5 h-3.5" />,
-      color: "text-gray-500",
-      bg: "bg-gray-50",
-      border: "border-gray-200",
-      label: "Neutral",
-    },
-  };
-
   const sourceConfig: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
     news: { icon: <Newspaper className="w-3 h-3" />, label: "News", color: "bg-blue-100 text-blue-700" },
-    factcheck: { icon: <CheckCheck className="w-3 h-3" />, label: "Fact Check", color: "bg-emerald-100 text-emerald-700" },
+    scraper: { icon: <Search className="w-3 h-3" />, label: "Deep Search", color: "bg-amber-100 text-amber-700" },
     wikipedia: { icon: <BookOpen className="w-3 h-3" />, label: "Wikipedia", color: "bg-purple-100 text-purple-700" },
   };
 
@@ -51,13 +27,12 @@ const EvidenceSection = ({ evidence }: EvidenceSectionProps) => {
           Evidence Sources
         </h3>
         <span className="ml-auto text-xs font-semibold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">
-          {evidence.slice(0, 3).length} sources
+          {evidence.slice(0, 3).length} top sources
         </span>
       </div>
 
       <div className="space-y-3">
         {evidence.slice(0, 3).map((e, i) => {
-          const stance = stanceConfig[e.stance];
           const src = sourceConfig[e.source] || sourceConfig.news;
           return (
             <div
@@ -67,28 +42,17 @@ const EvidenceSection = ({ evidence }: EvidenceSectionProps) => {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0 space-y-2.5">
-                  {/* Tags row */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${src.color}`}>
                       {src.icon}
                       {src.label}
                     </span>
-                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${stance.bg} ${stance.border} ${stance.color}`}>
-                      {stance.icon}
-                      {stance.label}
-                    </span>
                   </div>
-                  
-                  {/* Title */}
                   <p className="text-sm font-semibold text-gray-800 leading-snug group-hover:text-indigo-700 transition-colors line-clamp-2">
                     {e.title}
                   </p>
-                  
-                  {/* Snippet */}
                   <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{e.snippet}</p>
                 </div>
-
-                {/* External link */}
                 {e.url && (
                   <a
                     href={e.url}
@@ -107,5 +71,4 @@ const EvidenceSection = ({ evidence }: EvidenceSectionProps) => {
     </div>
   );
 };
-
 export default EvidenceSection;

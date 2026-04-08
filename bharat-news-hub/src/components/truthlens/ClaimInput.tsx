@@ -18,20 +18,18 @@ const ClaimInput = ({ onSubmit, isLoading, progressMessage }: ClaimInputProps) =
   };
 
   const examples = [
-    "The Earth is flat",
-    "COVID-19 vaccines contain microchips",
-    "Elon Musk bought Twitter for $44 billion",
-    "Drinking warm water cures cancer",
+    "Latest technology updates",
+    "Global election news",
+    "Stock market today",
+    "Recent AI developments",
   ];
 
   return (
     <div className="space-y-5">
       <form onSubmit={handleSubmit} className="relative group">
-        {/* Glow backdrop */}
         <div className={`absolute -inset-1 rounded-3xl bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-pink-500/20 blur-xl transition-opacity duration-500 ${focused ? "opacity-100" : "opacity-0"}`} />
         
         <div className="relative rounded-2xl bg-white border border-gray-200/80 shadow-sm hover:shadow-lg focus-within:shadow-xl transition-all duration-300 overflow-hidden">
-          {/* Animated top gradient bar */}
           <div className={`h-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-500 ${focused ? "opacity-100" : "opacity-0"}`} />
           
           <textarea
@@ -45,12 +43,11 @@ const ClaimInput = ({ onSubmit, isLoading, progressMessage }: ClaimInputProps) =
                 handleSubmit(e);
               }
             }}
-            placeholder="Enter a claim, news headline, or paste a URL to fact-check..."
+            placeholder="Enter a topic to get a professional news briefing..."
             rows={3}
             className="w-full px-6 py-5 bg-transparent text-gray-800 placeholder:text-gray-400 text-[15px] resize-none focus:outline-none leading-relaxed"
           />
           
-          {/* Bottom action bar */}
           <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50/50">
             {isLoading && progressMessage ? (
               <div className="flex items-center gap-2.5">
@@ -64,7 +61,7 @@ const ClaimInput = ({ onSubmit, isLoading, progressMessage }: ClaimInputProps) =
             ) : (
               <div className="flex items-center gap-1.5 text-xs text-gray-400">
                 <kbd className="px-1.5 py-0.5 rounded bg-gray-200/80 text-[10px] font-mono font-semibold text-gray-500">Enter</kbd>
-                <span>to analyze</span>
+                <span>to fetch news</span>
               </div>
             )}
             <button
@@ -81,14 +78,13 @@ const ClaimInput = ({ onSubmit, isLoading, progressMessage }: ClaimInputProps) =
               ) : (
                 <Search className="w-4 h-4" />
               )}
-              Analyze
+              Fetch News
               {input.trim() && !isLoading && <ArrowRight className="w-3.5 h-3.5 ml-0.5" />}
             </button>
           </div>
         </div>
       </form>
 
-      {/* Example suggestions */}
       {!isLoading && (
         <div className="flex items-center gap-2.5 flex-wrap">
           <span className="flex items-center gap-1.5 text-xs text-gray-400 font-medium">

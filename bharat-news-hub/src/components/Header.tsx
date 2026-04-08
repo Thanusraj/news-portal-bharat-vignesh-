@@ -156,18 +156,11 @@ const Header = () => {
         }`}
       >
         <div className="w-full bg-white/70 dark:bg-zinc-950/70 backdrop-blur-2xl border-b border-border/40">
-          <div className="flex items-center justify-between px-8 lg:px-12 py-4">
-            {/* Logo — near left edge */}
-            <Link to="/" className="flex items-center gap-3 flex-shrink-0 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25 group-hover:shadow-indigo-500/40 transition-shadow">
-                <Newspaper className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex flex-col -space-y-0.5">
-                <span className="font-extrabold text-xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600">
-                  Bharat News
-                </span>
-                <span className="text-[10px] font-semibold text-gray-400 tracking-widest uppercase">Your Daily Pulse</span>
-              </div>
+          <div className="flex items-center justify-between px-4 lg:px-8 py-3">
+            {/* Logo — with side padding */}
+            <Link to="/" className="flex items-center flex-shrink-0 group ml-4 lg:ml-0 gap-3">
+              <img src="/logo%20part.png" alt="Bharat News icon" className="h-[60px] w-auto object-contain drop-shadow-sm transition-all duration-300" />
+              <img src="/text%20part.png" alt="Bharat News" className="h-[40px] w-auto max-w-[240px] object-contain drop-shadow-sm transition-all duration-300" />
             </Link>
 
             {/* Navigation Links — near right edge */}
@@ -216,14 +209,10 @@ const Header = () => {
         {/* Logo Pill */}
         <button
           onClick={() => handlePillNav("/")}
-          className="flex items-center gap-2 bg-white dark:bg-zinc-800 px-4 py-2 rounded-[2rem] shadow-sm hover:shadow-md transition-all cursor-pointer"
+          className="flex items-center gap-2 bg-white dark:bg-zinc-800 px-4 py-1.5 rounded-[2rem] shadow-sm hover:shadow-md transition-all cursor-pointer"
         >
-          <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center">
-            <Newspaper className="w-3.5 h-3.5 text-white" />
-          </div>
-          <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 text-sm">
-            Bharat News
-          </span>
+          <img src="/logo%20part.png" alt="Bharat News icon" className="h-6 w-auto object-contain" />
+          <img src="/text%20part.png" alt="Bharat News" className="h-[22px] w-auto max-w-[120px] object-contain" />
         </button>
 
         {/* Dark Nav Links */}
