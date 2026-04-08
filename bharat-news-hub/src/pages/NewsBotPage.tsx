@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Header from "@/components/Header";
-import ChatSidebar from "@/components/bharatnews/ChatSidebar";
-import NewsMessageCard from "@/components/bharatnews/NewsMessageCard";
-import GeneratingIndicator from "@/components/bharatnews/GeneratingIndicator";
-import ChatInput from "@/components/bharatnews/ChatInput";
-import WelcomeScreen from "@/components/bharatnews/WelcomeScreen";
-import BharatNewsLogo from "@/components/bharatnews/BharatNewsLogo";
+import Sidebar from "@/components/newsbot/Sidebar";
+import ChatHeader from "@/components/newsbot/ChatHeader";
+import ChatMessages from "@/components/newsbot/ChatMessages";
+import ChatInput from "@/components/newsbot/ChatInput";
 import type { ChatSession, ChatMessage } from "@/types/newsBot.types";
 import { sendNewsQueryGroq } from "@/services/newsBotApi";
-import { Settings, X } from "lucide-react";
+import { X } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 /* ─── localStorage helpers ──────────────────────────────────────── */
 const STORAGE_KEY = "bharatnews_sessions_v2";
@@ -54,8 +53,7 @@ const NewsBotPage: React.FC = () => {
   });
   const [showApiModal, setShowApiModal] = useState(false);
   const [tempApiKey, setTempApiKey] = useState("");
-
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   /* Load sessions from storage */
   useEffect(() => {
@@ -67,11 +65,6 @@ const NewsBotPage: React.FC = () => {
   /* Active session */
   const activeSession = sessions.find((s) => s.id === activeId) ?? null;
   const messages = activeSession?.messages ?? [];
-
-  /* Scroll to bottom */
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isGenerating]);
 
   /* Update sessions helper */
   const updateSessions = useCallback(
@@ -257,128 +250,115 @@ const NewsBotPage: React.FC = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex gap-6 h-[calc(100vh-200px)]">
-          {/* Sidebar - Hidden on mobile */}
-          <div className="hidden lg:block lg:w-64 flex-shrink-0">
-            <div className="bg-card rounded-2xl border border-border p-4 h-full overflow-y-auto">
-              <button
-                onClick={handleNewChat}
-                className="w-full mb-4 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
-              >
-                + New Chat
-              </button>
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        <div className="mb-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-600">
+                NewsBot AI
+              </p>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                BharatNews AI Correspondent
+              </h1>
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                Get fast, trusted news summaries and briefings from BharatNews AI without leaving the portal.
+              </p>
+            </div>
+          </div>
+        </div>
 
-              <ChatSidebar
+        <div className="grid grid-cols-1 xl:grid-cols-[300px_1fr] gap-5">
+          <aside className="hidden xl:block">
+            <div className="h-full rounded-3xl border border-border bg-card shadow-sm overflow-hidden">
+              <Sidebar
                 sessions={sessions}
                 activeId={activeId}
-                isOpen={true}
-                onToggle={() => {}}
                 onNewChat={handleNewChat}
                 onSelectSession={setActiveId}
                 onDeleteSession={handleDeleteSession}
                 onPinSession={handlePinSession}
               />
             </div>
-          </div>
+          </aside>
 
-          {/* Main Chat Area */}
-          <div className="flex-1 flex flex-col gap-4">
-            {/* Chat Header */}
-            <div className="bg-card rounded-2xl border border-border p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <BharatNewsLogo size={28} spinning={isGenerating} />
-                  <div>
-                    <h1 className="text-lg font-bold text-foreground">
-                      BharatNews <span className="text-orange-500">AI</span>
-                    </h1>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-2.5 h-2.5 rounded-full ${
-                          isGenerating
-                            ? "bg-amber-400 animate-pulse"
-                            : "bg-green-500"
-                        }`}
-                      />
-                      <span
-                        className={`text-xs font-semibold ${
-                          isGenerating
-                            ? "text-amber-400"
-                            : "text-green-500"
-                        }`}
-                      >
-                        {isGenerating ? "Generating..." : "Ready"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowApiModal(true)}
-                  className="p-2.5 rounded-lg hover:bg-muted transition-colors"
-                  aria-label="Settings"
-                >
-                  <Settings className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </div>
+          <div className="flex flex-col gap-5">
+            <div className="rounded-3xl border border-border bg-card shadow-sm overflow-hidden">
+              <ChatHeader
+                isGenerating={isGenerating}
+                onOpenSidebar={() => setSidebarOpen(true)}
+                onOpenSettings={() => setShowApiModal(true)}
+              />
+              <ChatMessages
+                messages={messages}
+                isGenerating={isGenerating}
+                onTopicClick={(text) => setInput(text)}
+                onFollowUp={handleFollowUp}
+              />
             </div>
 
-            {/* Messages Container */}
-            <div className="flex-1 bg-card rounded-2xl border border-border overflow-hidden flex flex-col">
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                {messages.length === 0 ? (
-                  <WelcomeScreen
-                    onTopicClick={(text) => setInput(text)}
-                  />
-                ) : (
-                  <>
-                    {messages.map((msg) => (
-                      <NewsMessageCard
-                        key={msg.id}
-                        message={msg}
-                        onFollowUp={handleFollowUp}
-                      />
-                    ))}
-                    {isGenerating && <GeneratingIndicator />}
-                    <div ref={messagesEndRef} />
-                  </>
-                )}
-              </div>
-
-              {/* Input Area */}
-              <div className="border-t border-border p-4 bg-muted/30">
-                <ChatInput
-                  value={input}
-                  onChange={(text) => setInput(text)}
-                  onSubmit={handleSend}
-                  isLoading={isGenerating}
-                />
-              </div>
+            <div className="rounded-3xl border border-border bg-card shadow-sm overflow-hidden">
+              <ChatInput
+                value={input}
+                onChange={(text) => setInput(text)}
+                onSubmit={handleSend}
+                isLoading={isGenerating}
+              />
             </div>
           </div>
         </div>
       </main>
 
+      {/* Tablet/mobile sidebar as a drawer */}
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent side="left" className="p-0">
+          <SheetHeader className="px-4 pt-4 pb-2">
+            <SheetTitle>Chat History</SheetTitle>
+          </SheetHeader>
+          <div className="h-[calc(100vh-80px)]">
+            <Sidebar
+              sessions={sessions}
+              activeId={activeId}
+              onNewChat={() => {
+                handleNewChat();
+                setSidebarOpen(false);
+              }}
+              onSelectSession={(id) => {
+                setActiveId(id);
+                setSidebarOpen(false);
+              }}
+              onDeleteSession={handleDeleteSession}
+              onPinSession={handlePinSession}
+              className="w-full h-full"
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* API Key Modal */}
       {showApiModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-card rounded-2xl border border-border p-6 max-w-md w-full">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 max-w-md w-full shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-foreground">
+              <h2 className="text-lg font-bold text-gray-900">
                 API Key Setup
               </h2>
               <button
                 onClick={() => setShowApiModal(false)}
-                className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                className="p-1.5 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="text-sm text-gray-600 mb-4">
               Enter your Groq API key to enable the chatbot
             </p>
+
+            {error && (
+              <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            )}
 
             <input
               type="password"
@@ -386,16 +366,16 @@ const NewsBotPage: React.FC = () => {
               onChange={(e) => setTempApiKey(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSaveApiKey()}
               placeholder="gsk_..."
-              className="w-full px-4 py-2 rounded-lg bg-muted border border-border text-foreground text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="w-full px-4 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-900 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300"
             />
 
-            <p className="text-xs text-muted-foreground mb-4">
+            <p className="text-xs text-gray-500 mb-4">
               Get your key at{" "}
               <a
                 href="https://console.groq.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:underline"
+                className="text-blue-600 hover:underline"
               >
                 console.groq.com
               </a>
@@ -404,14 +384,14 @@ const NewsBotPage: React.FC = () => {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowApiModal(false)}
-                className="flex-1 px-4 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition-colors text-sm font-medium"
+                className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveApiKey}
                 disabled={!tempApiKey.trim()}
-                className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity text-sm font-semibold"
+                className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm font-semibold"
               >
                 Save
               </button>
