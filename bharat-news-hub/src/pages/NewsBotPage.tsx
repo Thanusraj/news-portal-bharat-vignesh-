@@ -329,7 +329,7 @@ const NewsBotPage: React.FC = () => {
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {messages.length === 0 ? (
                   <WelcomeScreen
-                    onExampleClick={(text) => setInput(text)}
+                    onTopicClick={(text) => setInput(text)}
                   />
                 ) : (
                   <>
