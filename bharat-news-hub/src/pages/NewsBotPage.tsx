@@ -6,7 +6,7 @@ import ChatInput from "@/components/bharatnews/ChatInput";
 import WelcomeScreen from "@/components/bharatnews/WelcomeScreen";
 import BharatNewsLogo from "@/components/bharatnews/BharatNewsLogo";
 import type { ChatSession, ChatMessage } from "@/types/newsBot.types";
-import { sendNewsQuery } from "@/services/newsBotApi";
+import { sendNewsQueryGroq } from "@/services/newsBotApi";
 import { Settings, Wifi } from "lucide-react";
 
 /* ─── localStorage helpers ──────────────────────────────────────── */
@@ -47,7 +47,7 @@ const NewsBotPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string>(() => {
     return (
-      (import.meta as any).env?.VITE_ANTHROPIC_API_KEY ||
+      (import.meta as any).env?.VITE_GROQ_API_KEY ||
       localStorage.getItem("bharatnews_api_key") ||
       ""
     );
@@ -188,7 +188,7 @@ const NewsBotPage: React.FC = () => {
 
     try {
       const currentMessages = sessions.find((s) => s.id === sid)?.messages ?? [];
-      const newsData = await sendNewsQuery(text, [...currentMessages, userMsg], apiKey);
+      const newsData = await sendNewsQueryGroq(text, [...currentMessages, userMsg], apiKey);
 
       const assistantMsg: ChatMessage = {
         id: `a_${Date.now()}`,
