@@ -349,12 +349,10 @@ const NewsBotPage: React.FC = () => {
               {/* Input Area */}
               <div className="border-t border-border p-4 bg-muted/30">
                 <ChatInput
-                  input={input}
+                  value={input}
                   onChange={(text) => setInput(text)}
                   onSubmit={handleSend}
                   isLoading={isGenerating}
-                  error={error}
-                  onClearError={() => setError(null)}
                 />
               </div>
             </div>
