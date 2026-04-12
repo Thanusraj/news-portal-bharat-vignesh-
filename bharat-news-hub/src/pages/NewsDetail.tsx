@@ -32,6 +32,7 @@ const NewsDetail = () => {
   const [translationProgress, setTranslationProgress] = useState<string>("");
   const [translationEngine, setTranslationEngine] = useState<string>("");
   const [translationError, setTranslationError] = useState<string | null>(null);
+  const [translationTime, setTranslationTime] = useState<number | null>(null);
 
   /**
    * Translates article HTML using the robust translation service.
@@ -49,6 +50,7 @@ const NewsDetail = () => {
       }
       setTranslatedHtml(null);
       setTranslationEngine("");
+      setTranslationTime(null);
       return;
     }
 
@@ -67,7 +69,16 @@ const NewsDetail = () => {
         htmlToTranslate,
         langKey,
         (done, total) => {
-          setTranslationProgress(`Translating: ${done}/${total} segments`);
+          if (total <= 1) {
+            setTranslationProgress(
+              done >= 1 ? "Finishing…" : "Starting translation…"
+            );
+          } else {
+            const pct = Math.round((done / total) * 100);
+            setTranslationProgress(
+              `Translating part ${done} of ${total} (${pct}%) — long articles are split automatically`
+            );
+          }
         }
       );
 
@@ -75,9 +86,11 @@ const NewsDetail = () => {
         setTranslatedHtml(result.translatedHtml);
         setFullArticleHtml(result.translatedHtml);
         setTranslationEngine(result.engine);
+        setTranslationTime(result.timeTakenMs);
         setTranslationError(null);
       } else {
         setTranslationError(result.error || "Translation failed. Please try again.");
+        setTranslationTime(result.timeTakenMs);
       }
     } catch (err: any) {
       console.error("Translation request failed:", err.message);
@@ -316,7 +329,14 @@ const NewsDetail = () => {
             {translationEngine && selectedLang !== "english" && !isTranslating && !translationError && (
               <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 border border-green-200 dark:bg-green-500/10 dark:border-green-500/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                <p className="text-xs font-semibold text-green-700 dark:text-green-400">Translated via {translationEngine}</p>
+                <p className="text-xs font-semibold text-green-700 dark:text-green-400">
+                  Translated via {translationEngine}
+                  {translationTime !== null && (
+                    <span className="ml-1.5 text-green-600/70 dark:text-green-400/70 font-medium">
+                      • {translationTime < 1000 ? `${translationTime}ms` : `${(translationTime / 1000).toFixed(1)}s`}
+                    </span>
+                  )}
+                </p>
               </div>
             )}
 

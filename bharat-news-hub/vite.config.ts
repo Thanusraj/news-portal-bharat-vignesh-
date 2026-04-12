@@ -50,6 +50,18 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/huggingface/, '')
       },
+      // Google Translate (free, fast — primary translation engine)
+      '/api/gtranslate': {
+        target: 'https://translate.googleapis.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace('/api/gtranslate', '/translate_a/single'),
+      },
+      // IndicTrans2 local server (fallback translation engine)
+      '/api/translator-health': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: () => '/',
+      },
       '/api/translate': {
         target: 'http://localhost:8000',
         changeOrigin: true,

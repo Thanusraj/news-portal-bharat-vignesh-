@@ -39,11 +39,9 @@ import logging
 
 # Try to import ONNX Runtime support
 try:
-    import onnxruntime as ort
     from optimum.onnxruntime import ORTModelForSeq2SeqLM
     HAS_ONNX = True
 except ImportError:
-    ort = None
     HAS_ONNX = False
 
 # ============================================================
@@ -57,7 +55,7 @@ SRC_LANG = "eng_Latn"
 GENERATION_MAX_LENGTH = 60  # Reduced from 80 for faster generation
 GENERATION_NUM_BEAMS = 1    # Single beam is fastest
 GENERATION_EARLY_STOP = True
-GENERATION_USE_CACHE = False  # Disabled due to IndicTrans2 architecture bugs with past_key_values
+GENERATION_USE_CACHE = False
 
 # CPU threading optimization
 CPU_THREADS = int(os.environ.get("INDICTRANS_CPU_THREADS", str(max(1, min(8, (os.cpu_count() or 4) - 1)))))
@@ -69,8 +67,7 @@ if DEVICE == "cpu":
         pass
 
 # Batch size tuning
-MIN_BATCH_SIZE = int(os.environ.get("INDICTRANS_MIN_BATCH_SIZE", "8"))
-CPU_BATCH_SIZE = int(os.environ.get("INDICTRANS_CPU_BATCH_SIZE", "32"))
+CPU_BATCH_SIZE = int(os.environ.get("INDICTRANS_CPU_BATCH_SIZE", "16"))  # Increased from 8
 GPU_BATCH_SIZE = int(os.environ.get("INDICTRANS_GPU_BATCH_SIZE", "32"))  # Increased from 24
 
 # Smart batching queue
@@ -87,7 +84,7 @@ PREFER_ONNX = os.environ.get("INDICTRANS_ONNX", "1").strip() not in ("0", "false
 ONNX_MODEL_DIR = os.environ.get("INDICTRANS_ONNX_DIR", "models/indictrans2-onnx")
 
 # Chunking optimization
-CHUNK_MAX_CHARS = 500  # Larger chunks = fewer inference calls = faster total time
+CHUNK_MAX_CHARS = 350  # Increased from 280 for better batching
 
 # Performance logging
 ENABLE_PERF_LOG = os.environ.get("INDICTRANS_PERF_LOG", "1").strip() not in ("0", "false")
@@ -117,12 +114,8 @@ class AdvancedCache:
     def __init__(self, memory_size: int = MEMORY_CACHE_SIZE):
         self.memory: OrderedDict[str, CacheEntry] = OrderedDict()
         self.memory_size = memory_size
-        self.request_cache: "OrderedDict[str, List[str]]" = OrderedDict()
+        self.request_cache: Dict[str, str] = {}
         self.persistent_dir = Path(PERSISTENT_CACHE_DIR)
-        self.hits = 0
-        self.misses = 0
-        self.request_hits = 0
-        self.request_misses = 0
         
         if USE_PERSISTENT_CACHE:
             self.persistent_dir.mkdir(parents=True, exist_ok=True)
@@ -130,28 +123,7 @@ class AdvancedCache:
     
     def _make_key(self, tgt_lang: str, text: str) -> str:
         """Create deterministic cache key."""
-        return f"{tgt_lang}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
-
-    def _request_key(self, tgt_lang: str, texts: List[str]) -> str:
-        payload = json.dumps([tgt_lang, texts], ensure_ascii=False, separators=(",", ":"))
-        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
-    def get_request(self, tgt_lang: str, texts: List[str]) -> Optional[List[str]]:
-        key = self._request_key(tgt_lang, texts)
-        hit = self.request_cache.get(key)
-        if hit is None:
-            self.request_misses += 1
-            return None
-        self.request_hits += 1
-        self.request_cache.move_to_end(key)
-        return list(hit)
-
-    def set_request(self, tgt_lang: str, texts: List[str], translated: List[str]) -> None:
-        key = self._request_key(tgt_lang, texts)
-        self.request_cache[key] = list(translated)
-        self.request_cache.move_to_end(key)
-        while len(self.request_cache) > 1024:
-            self.request_cache.popitem(last=False)
+        return f"{tgt_lang}:{hashlib.md5(text.encode()).hexdigest()}"
     
     def get(self, tgt_lang: str, text: str) -> Optional[str]:
         """Fetch from cache (memory → persistent)."""
@@ -162,7 +134,6 @@ class AdvancedCache:
             entry = self.memory[key]
             entry.access_count += 1
             self.memory.move_to_end(key)
-            self.hits += 1
             return entry.value
         
         # 2. Check persistent cache
@@ -174,12 +145,10 @@ class AdvancedCache:
                         value = pickle.load(f)
                     # Promote to memory cache
                     self.set(tgt_lang, text, value)
-                    self.hits += 1
                     return value
             except Exception as e:
                 logger.debug(f"[Cache] Persistent read error: {e}")
-
-        self.misses += 1
+        
         return None
     
     def set(self, tgt_lang: str, text: str, value: str) -> None:
@@ -205,18 +174,9 @@ class AdvancedCache:
     
     def stats(self) -> Dict[str, int]:
         """Return cache statistics."""
-        sentence_total = self.hits + self.misses
-        request_total = self.request_hits + self.request_misses
         return {
             "memory_entries": len(self.memory),
-            "request_entries": len(self.request_cache),
             "persistent_files": len(list(self.persistent_dir.glob("*.pkl"))) if USE_PERSISTENT_CACHE else 0,
-            "sentence_hits": self.hits,
-            "sentence_misses": self.misses,
-            "sentence_hit_rate": round(self.hits / sentence_total, 4) if sentence_total else 0.0,
-            "request_hits": self.request_hits,
-            "request_misses": self.request_misses,
-            "request_hit_rate": round(self.request_hits / request_total, 4) if request_total else 0.0,
         }
 
 
@@ -247,8 +207,6 @@ class SmartBatchingQueue:
         self.queue: List[TranslateQueueItem] = []
         self.lock = asyncio.Lock()
         self.pending_batch_task: Optional[asyncio.Task] = None
-        self.total_batches = 0
-        self.total_requests = 0
     
     async def add_request(self, texts: List[str], tgt_lang: str, target_lang_name: str) -> List[str]:
         """
@@ -265,13 +223,21 @@ class SmartBatchingQueue:
                 future=future,
             )
             self.queue.append(item)
-
-            if len(self.queue) >= self.max_batch_size:
-                if self.pending_batch_task and not self.pending_batch_task.done():
-                    self.pending_batch_task.cancel()
+            
+            # Start batch processor if not already running
+            should_process = (
+                len(self.queue) >= self.max_batch_size or
+                self.pending_batch_task is None or
+                self.pending_batch_task.done()
+            )
+            
+            if should_process:
                 self.pending_batch_task = asyncio.create_task(self._process_batch())
-            elif self.pending_batch_task is None or self.pending_batch_task.done():
-                self.pending_batch_task = asyncio.create_task(self._scheduled_batch_processor())
+            elif self.pending_batch_task is None:
+                # Schedule delayed batch processing
+                self.pending_batch_task = asyncio.create_task(
+                    self._scheduled_batch_processor()
+                )
         
         # Wait for result
         return await future
@@ -290,8 +256,6 @@ class SmartBatchingQueue:
             # Collect items to process
             items_to_process = self.queue[:]
             self.queue.clear()
-            self.total_batches += 1
-            self.total_requests += len(items_to_process)
         
         try:
             # Group by language for efficiency
@@ -372,18 +336,7 @@ try:
         try:
             print(f"[Model] Loading ONNX from {ONNX_MODEL_DIR}...")
             start = time.time()
-            session_options = None
-            if ort is not None:
-                session_options = ort.SessionOptions()
-                session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-                session_options.intra_op_num_threads = CPU_THREADS
-                session_options.inter_op_num_threads = 1
-                session_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-            model = ORTModelForSeq2SeqLM.from_pretrained(
-                ONNX_MODEL_DIR,
-                provider="CPUExecutionProvider",
-                session_options=session_options,
-            )
+            model = ORTModelForSeq2SeqLM.from_pretrained(ONNX_MODEL_DIR)
             use_onnx = True
             print(f"[Model] ✅ ONNX Model loaded in {time.time() - start:.1f}s")
         except Exception as e:
@@ -421,17 +374,16 @@ PERF_LOG = {"batches": 0, "total_texts": 0, "total_time": 0.0}
 
 
 def _infer_batch_impl(batch: List[str], tgt_lang: str) -> List[str]:
-    """Core inference implementation for ONNX Runtime or PyTorch."""
+    """Core inference implementation (PyTorch)."""
     if not batch:
         return []
-
+    
     batch_start = time.time()
-
-    preprocess_start = time.time()
+    
+    # Preprocess
     batch_preprocessed = ip.preprocess_batch(batch, src_lang=SRC_LANG, tgt_lang=tgt_lang)
-    preprocess_time = time.time() - preprocess_start
-
-    tokenize_start = time.time()
+    
+    # Tokenize
     inputs = tokenizer(
         batch_preprocessed,
         truncation=True,
@@ -439,75 +391,49 @@ def _infer_batch_impl(batch: List[str], tgt_lang: str) -> List[str]:
         return_tensors="pt",
         return_attention_mask=True,
         max_length=320,
-    )
-    if not use_onnx:
-        inputs = inputs.to(DEVICE)
-    tokenize_time = time.time() - tokenize_start
-
-    generate_start = time.time()
-    generate_kwargs = {
-        "min_length": 0,
-        "max_length": GENERATION_MAX_LENGTH,
-        "num_beams": GENERATION_NUM_BEAMS,
-        "do_sample": False,
-        "num_return_sequences": 1,
-        "early_stopping": GENERATION_EARLY_STOP,
-        "use_cache": GENERATION_USE_CACHE,
-    }
-    if use_onnx:
-        generated_tokens = model.generate(**inputs, **generate_kwargs)
-    else:
-        with torch.inference_mode():
-            generated_tokens = model.generate(**inputs, **generate_kwargs)
-    generate_time = time.time() - generate_start
-
-    decode_start = time.time()
+    ).to(DEVICE)
+    
+    # Generate
+    with torch.inference_mode():
+        generated_tokens = model.generate(
+            **inputs,
+            use_cache=GENERATION_USE_CACHE,
+            min_length=0,
+            max_length=GENERATION_MAX_LENGTH,
+            num_beams=GENERATION_NUM_BEAMS,
+            do_sample=False,
+            num_return_sequences=1,
+            early_stopping=GENERATION_EARLY_STOP,
+        )
+    
+    # Decode
     decoded = tokenizer.batch_decode(
         generated_tokens,
         skip_special_tokens=True,
         clean_up_tokenization_spaces=True,
     )
-    decode_time = time.time() - decode_start
-
-    postprocess_start = time.time()
+    
+    # Postprocess
     result = ip.postprocess_batch(decoded, lang=tgt_lang)
-    postprocess_time = time.time() - postprocess_start
-
+    
     elapsed = time.time() - batch_start
     if ENABLE_PERF_LOG:
         PERF_LOG["batches"] += 1
         PERF_LOG["total_texts"] += len(batch)
         PERF_LOG["total_time"] += elapsed
         rate = len(batch) / elapsed if elapsed > 0 else 0
-        logger.info(
-            "[Infer] engine=%s texts=%d total=%.2fs prep=%.3fs tok=%.3fs gen=%.3fs dec=%.3fs post=%.3fs rate=%.1f/s",
-            "ONNX" if use_onnx else "PyTorch",
-            len(batch),
-            elapsed,
-            preprocess_time,
-            tokenize_time,
-            generate_time,
-            decode_time,
-            postprocess_time,
-            rate,
-        )
-
+        logger.info(f"[Infer] {len(batch):2d} texts in {elapsed:.2f}s ({rate:.1f}/s)")
+    
     return result
 
 
-def _translate_batch_sync(texts: List[str], tgt_lang: str) -> List[str]:
+async def _translate_batch_async(texts: List[str], tgt_lang: str) -> List[str]:
     """
     Async wrapper for batch translation with caching and deduplication.
     """
     if not texts:
         return []
-
-    request_hit = _cache.get_request(tgt_lang, texts)
-    if request_hit is not None:
-        return request_hit
-
-    pipeline_start = time.time()
-
+    
     # Stage 1: Deduplicate and chunk
     unique_map: Dict[str, str] = {}  # unique_text -> final_result
     original_to_chunks: Dict[int, List[str]] = {}  # original_idx -> chunks
@@ -533,12 +459,14 @@ def _translate_batch_sync(texts: List[str], tgt_lang: str) -> List[str]:
         else:
             to_translate.append(text)
     
-    # Stage 3: Run inference in batches. This is intentionally owned by the
-    # async queue worker instead of per-request run_in_executor calls.
-    batch_size = choose_dynamic_batch_size(to_translate)
+    # Stage 3: Run inference in batches
+    batch_size = MAX_BATCH_SIZE
+    loop = asyncio.get_event_loop()
+    
     for i in range(0, len(to_translate), batch_size):
         batch = to_translate[i : i + batch_size]
-        result = _infer_batch_impl(batch, tgt_lang)
+        # Run in executor to avoid blocking
+        result = await loop.run_in_executor(None, _infer_batch_impl, batch, tgt_lang)
         for src, trans in zip(batch, result):
             unique_map[src] = trans
             _cache.set(tgt_lang, src, trans)
@@ -550,45 +478,12 @@ def _translate_batch_sync(texts: List[str], tgt_lang: str) -> List[str]:
             parts = [unique_map[c] for c in chunks]
             result[original_idx] = " ".join(parts).strip()
     
-    _cache.set_request(tgt_lang, texts, result)
-    if ENABLE_PERF_LOG:
-        logger.info(
-            "[Pipeline] texts=%d unique=%d infer=%d batch=%d total=%.2fs",
-            len(texts),
-            len(unique_map),
-            len(to_translate),
-            batch_size,
-            time.time() - pipeline_start,
-        )
-
     return result
-
-
-async def _translate_batch_async(texts: List[str], tgt_lang: str) -> List[str]:
-    """Run heavy translation in a thread pool so FastAPI stays responsive."""
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _translate_batch_sync, texts, tgt_lang)
-
-
-def choose_dynamic_batch_size(texts: List[str]) -> int:
-    if not texts:
-        return MIN_BATCH_SIZE
-    avg_chars = sum(len(text) for text in texts) / len(texts)
-    if avg_chars < 80:
-        return MAX_BATCH_SIZE
-    if avg_chars < 180:
-        return max(MIN_BATCH_SIZE, min(MAX_BATCH_SIZE, 24))
-    return max(MIN_BATCH_SIZE, min(MAX_BATCH_SIZE, 16))
 
 
 def chunk_text(text: str, max_chars: int = CHUNK_MAX_CHARS) -> List[str]:
     """Split text into smaller chunks optimally."""
-    text = re.sub(r"\s+", " ", text.strip())
-    if len(text) > max_chars:
-        sentence_count = max(1, len(re.findall(r"[.!?]\s+", text)))
-        avg_sentence = len(text) / sentence_count
-        if avg_sentence > 220:
-            max_chars = min(520, max(max_chars, int(avg_sentence * 1.25)))
+    text = text.strip()
     if not text or len(text) <= max_chars:
         return [text] if text else []
     
@@ -603,12 +498,12 @@ def chunk_text(text: str, max_chars: int = CHUNK_MAX_CHARS) -> List[str]:
         if end < n:
             segment = text[start:end]
             matches = list(re.finditer(r"[.!?\n]+\s+|\n+", segment))
-            if matches and matches[-1].end() > max_chars * 0.45:
+            if matches:
                 end = start + matches[-1].end()
             else:
                 # Fall back to word boundary
                 sp = segment.rfind(" ")
-                if sp > max_chars * 0.35:
+                if sp > max_chars // 4:
                     end = start + sp
         
         piece = text[start:end].strip()
@@ -651,8 +546,16 @@ def translate_html_sync(html_content: str, target_lang: str) -> str:
     if not text_nodes:
         return html_content
     
-    texts_to_translate = [str(node).strip() for node in text_nodes]
-    translated_texts = _translate_batch_sync(texts_to_translate, tgt_lang_code)
+    # Run async translation synchronously
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        texts_to_translate = [str(node).strip() for node in text_nodes]
+        translated_texts = loop.run_until_complete(
+            _translate_batch_async(texts_to_translate, tgt_lang_code)
+        )
+    finally:
+        loop.close()
     
     for node, translated in zip(text_nodes, translated_texts):
         if translated and translated.strip():
@@ -847,9 +750,12 @@ async def translate_endpoint(req: TranslateRequest):
         # Legacy HTML path
         if req.html_content:
             logger.info(f"[API] LEGACY HTML PATH: {html_len} chars")
-            translated_html = translate_html_sync(req.html_content, req.target_lang)
+            loop = asyncio.get_event_loop()
+            translated_html = await loop.run_in_executor(
+                None, translate_html_sync, req.html_content, req.target_lang
+            )
             elapsed = time.time() - start
-            logger.info(f"[API] Done in {elapsed:.2f}s")
+            logger.info(f"[API] ✅ Done in {elapsed:.2f}s")
             return translate_response_json(
                 success=True,
                 target_lang=req.target_lang,
@@ -889,10 +795,6 @@ def health():
         "perf_log": PERF_LOG if ENABLE_PERF_LOG else None,
         "batch_queue_window_ms": BATCH_QUEUE_WINDOW_MS,
         "max_batch_size": MAX_BATCH_SIZE,
-        "batch_queue_stats": {
-            "total_batches": _batch_queue.total_batches,
-            "total_requests": _batch_queue.total_requests,
-        },
         "generation_settings": {
             "max_length": GENERATION_MAX_LENGTH,
             "num_beams": GENERATION_NUM_BEAMS,
@@ -904,7 +806,6 @@ def health():
             "text_nodes_optional": True,
             "require_one_of": True,
         },
-        "loaded_from": os.path.abspath(__file__),
     }
 
 
