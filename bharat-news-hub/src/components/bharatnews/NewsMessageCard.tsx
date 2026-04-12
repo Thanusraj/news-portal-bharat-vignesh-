@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { ChatMessage } from "../types/newsBot.types";
 import BharatNewsLogo from "./BharatNewsLogo";
+import { cn } from "@/lib/utils";
 
 interface NewsMessageCardProps {
   message: ChatMessage;
@@ -66,31 +67,23 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string
 
 const SENTIMENT_CONFIG = {
   positive: {
-    icon: <TrendingUp size={12} />,
-    color: "#34d399",
-    bg: "rgba(16,185,129,0.12)",
-    border: "rgba(16,185,129,0.25)",
+    icon: TrendingUp,
+    className: "text-emerald-700 bg-emerald-50 border-emerald-200",
     label: "Positive",
   },
   negative: {
-    icon: <TrendingDown size={12} />,
-    color: "#f87171",
-    bg: "rgba(239,68,68,0.12)",
-    border: "rgba(239,68,68,0.25)",
+    icon: TrendingDown,
+    className: "text-red-700 bg-red-50 border-red-200",
     label: "Negative",
   },
   mixed: {
-    icon: <Zap size={12} />,
-    color: "#fbbf24",
-    bg: "rgba(245,158,11,0.12)",
-    border: "rgba(245,158,11,0.25)",
+    icon: Zap,
+    className: "text-amber-700 bg-amber-50 border-amber-200",
     label: "Mixed",
   },
   neutral: {
-    icon: <Minus size={12} />,
-    color: "#94a3b8",
-    bg: "rgba(148,163,184,0.12)",
-    border: "rgba(148,163,184,0.25)",
+    icon: Minus,
+    className: "text-gray-700 bg-gray-50 border-gray-200",
     label: "Neutral",
   },
 };
@@ -108,43 +101,12 @@ const NewsMessageCard: React.FC<NewsMessageCardProps> = ({
   /* ─── USER MESSAGE ─────────────────────────────────────── */
   if (message.role === "user") {
     return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          marginBottom: "20px",
-          animation: "msgSlideIn 0.3s ease-out",
-        }}
-      >
-        <div style={{ maxWidth: "70%" }}>
-          <div
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(99,102,241,0.28), rgba(139,92,246,0.22))",
-              backdropFilter: "blur(12px)",
-              border: "1px solid rgba(139,92,246,0.3)",
-              borderRadius: "18px 18px 4px 18px",
-              padding: "12px 18px",
-              color: "#e2e8f0",
-              fontSize: "14px",
-              lineHeight: 1.65,
-              boxShadow:
-                "0 4px 20px rgba(99,102,241,0.15), inset 0 1px 0 rgba(255,255,255,0.08)",
-            }}
-          >
+      <div className="flex justify-end">
+        <div className="max-w-[75%]">
+          <div className="rounded-2xl rounded-br-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-relaxed text-gray-900">
             {message.content}
           </div>
-          <div
-            style={{
-              textAlign: "right",
-              color: "#334155",
-              fontSize: "10px",
-              marginTop: "4px",
-              paddingRight: "6px",
-            }}
-          >
-            {time}
-          </div>
+          <div className="mt-1 text-right text-[11px] text-gray-500">{time}</div>
         </div>
       </div>
     );
@@ -153,25 +115,9 @@ const NewsMessageCard: React.FC<NewsMessageCardProps> = ({
   /* ─── ERROR MESSAGE ────────────────────────────────────── */
   if (message.type === "error") {
     return (
-      <div style={{ marginBottom: "20px", animation: "msgSlideIn 0.3s ease-out" }}>
-        <div
-          style={{
-            background: "rgba(239,68,68,0.08)",
-            border: "1px solid rgba(239,68,68,0.2)",
-            borderLeft: "3px solid #ef4444",
-            borderRadius: "12px",
-            padding: "14px 16px",
-            color: "#f87171",
-            fontSize: "13px",
-            lineHeight: 1.6,
-            display: "flex",
-            gap: "10px",
-            alignItems: "flex-start",
-          }}
-        >
-          <span style={{ fontSize: "16px" }}>⚠</span>
+      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex gap-2 items-start">
+        <span className="text-base leading-none">⚠</span>
           <span>{message.content}</span>
-        </div>
       </div>
     );
   }
@@ -183,299 +129,91 @@ const NewsMessageCard: React.FC<NewsMessageCardProps> = ({
   const sentimentCfg =
     SENTIMENT_CONFIG[data.sentiment as keyof typeof SENTIMENT_CONFIG] ||
     SENTIMENT_CONFIG.neutral;
-  const categoryCfg = data.category
-    ? CATEGORY_COLORS[data.category] || CATEGORY_COLORS["Technology"]
-    : null;
+  const SentimentIcon = sentimentCfg.icon;
 
   return (
-    <div
-      style={{
-        marginBottom: "24px",
-        animation: "msgSlideIn 0.4s cubic-bezier(0.16,1,0.3,1)",
-      }}
-    >
-      {/* Source watermark */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          marginBottom: "8px",
-          paddingLeft: "4px",
-        }}
-      >
-        <BharatNewsLogo size={22} />
-        <span
-          style={{
-            color: "#FF9933",
-            fontSize: "10px",
-            fontWeight: 800,
-            letterSpacing: "0.15em",
-            textTransform: "uppercase",
-          }}
-        >
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 text-xs text-gray-500">
+        <BharatNewsLogo size={18} />
+        <span className="font-extrabold tracking-widest uppercase text-gray-500">
           BharatNews AI
         </span>
-        <span style={{ color: "#1e293b", fontSize: "11px" }}>·</span>
-        <span style={{ color: "#334155", fontSize: "11px" }}>{time}</span>
+        <span className="text-gray-300">·</span>
+        <span>{time}</span>
       </div>
 
-      {/* Main card */}
-      <div
-        style={{
-          background:
-            "linear-gradient(145deg, rgba(12,18,50,0.85) 0%, rgba(6,10,28,0.92) 100%)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
-          border: "1px solid rgba(255,255,255,0.07)",
-          borderTop: data.breaking
-            ? "2px solid #ef4444"
-            : "2px solid #FF9933",
-          borderRadius: "16px",
-          overflow: "hidden",
-          boxShadow:
-            "0 8px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
-        }}
+      <article
+        className={cn(
+          "rounded-lg border bg-white overflow-hidden",
+          data.breaking ? "border-red-200" : "border-gray-200"
+        )}
       >
-        {/* BREAKING banner */}
         {data.breaking && (
-          <div
-            style={{
-              background: "rgba(239,68,68,0.9)",
-              padding: "5px 16px",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <div
-              style={{
-                width: "6px",
-                height: "6px",
-                borderRadius: "50%",
-                background: "white",
-                animation: "blinkDot 1s ease-in-out infinite",
-              }}
-            />
-            <span
-              style={{
-                color: "white",
-                fontSize: "10px",
-                fontWeight: 900,
-                letterSpacing: "0.2em",
-              }}
-            >
+          <div className="px-4 py-2 bg-red-50 border-b border-red-200 flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-red-500" />
+            <span className="text-[11px] font-extrabold tracking-widest text-red-700">
               BREAKING NEWS
             </span>
           </div>
         )}
 
-        {/* Card header */}
-        <div
-          style={{
-            padding: "16px 20px 14px",
-            borderBottom: "1px solid rgba(255,255,255,0.05)",
-          }}
-        >
-          {/* Category + Sentiment badges */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "10px",
-              gap: "8px",
-              flexWrap: "wrap",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              {categoryCfg && data.category && (
-                <span
-                  style={{
-                    background: categoryCfg.bg,
-                    border: `1px solid ${categoryCfg.border}`,
-                    color: categoryCfg.text,
-                    borderRadius: "6px",
-                    padding: "3px 10px",
-                    fontSize: "10px",
-                    fontWeight: 700,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                  }}
-                >
+        <div className="px-4 pt-4 pb-3 border-b border-gray-200">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              {data.category && (
+                <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-semibold text-gray-700">
                   {data.category}
                 </span>
               )}
             </div>
             <span
-              style={{
-                background: sentimentCfg.bg,
-                border: `1px solid ${sentimentCfg.border}`,
-                color: sentimentCfg.color,
-                borderRadius: "999px",
-                padding: "3px 10px",
-                fontSize: "10px",
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                display: "flex",
-                alignItems: "center",
-                gap: "5px",
-              }}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold",
+                sentimentCfg.className
+              )}
             >
-              {sentimentCfg.icon}
+              <SentimentIcon className="h-3.5 w-3.5" />
               {sentimentCfg.label}
             </span>
           </div>
 
-          {/* Headline */}
-          <h2
-            style={{
-              color: "#f1f5f9",
-              fontSize: "18px",
-              fontWeight: 700,
-              lineHeight: 1.35,
-              margin: 0,
-              fontFamily:
-                "'Georgia', 'Times New Roman', 'Palatino', serif",
-              letterSpacing: "-0.01em",
-            }}
-          >
+          <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-snug">
             {data.headline}
-          </h2>
+          </h3>
         </div>
 
-        {/* Summary */}
-        <div
-          style={{
-            padding: "14px 20px",
-            borderBottom: "1px solid rgba(255,255,255,0.04)",
-          }}
-        >
-          <p
-            style={{
-              color: "#cbd5e1",
-              fontSize: "14px",
-              lineHeight: 1.8,
-              margin: 0,
-            }}
-          >
-            {data.summary}
-          </p>
+        <div className="px-4 py-3 border-b border-gray-200">
+          <p className="text-sm leading-relaxed text-gray-700">{data.summary}</p>
         </div>
 
-        {/* Key Developments */}
-        {data.keyPoints && data.keyPoints.length > 0 && (
-          <div
-            style={{
-              padding: "14px 20px",
-              borderBottom: "1px solid rgba(255,255,255,0.04)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "7px",
-                marginBottom: "12px",
-              }}
-            >
-              <BookOpen size={13} style={{ color: "#475569" }} />
-              <span
-                style={{
-                  color: "#475569",
-                  fontSize: "10px",
-                  fontWeight: 800,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                }}
-              >
-                Key Developments
-              </span>
+        {data.keyPoints?.length > 0 && (
+          <div className="px-4 py-3 border-b border-gray-200">
+            <div className="flex items-center gap-2 mb-2 text-xs font-extrabold tracking-widest uppercase text-gray-500">
+              <BookOpen className="h-4 w-4 text-gray-400" />
+              Key Developments
             </div>
-            <ul
-              style={{
-                margin: 0,
-                padding: 0,
-                listStyle: "none",
-                display: "flex",
-                flexDirection: "column",
-                gap: "9px",
-              }}
-            >
+            <ul className="space-y-2">
               {data.keyPoints.map((point, i) => (
-                <li
-                  key={i}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "10px",
-                    color: "#e2e8f0",
-                    fontSize: "13px",
-                    lineHeight: 1.65,
-                    animation: `keyPointIn 0.3s ease-out ${0.08 * i}s both`,
-                  }}
-                >
-                  <span
-                    style={{
-                      color: "#FF9933",
-                      fontWeight: 800,
-                      flexShrink: 0,
-                      marginTop: "3px",
-                      fontSize: "10px",
-                    }}
-                  >
-                    ▸
-                  </span>
-                  {point}
+                <li key={i} className="flex gap-2 text-sm text-gray-800">
+                  <span className="mt-1 text-blue-600 font-bold">•</span>
+                  <span className="leading-relaxed">{point}</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
 
-        {/* Sources */}
-        {data.sources && data.sources.length > 0 && (
-          <div
-            style={{
-              padding: "12px 20px",
-              borderBottom: "1px solid rgba(255,255,255,0.04)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                marginBottom: "9px",
-              }}
-            >
-              <ExternalLink size={12} style={{ color: "#475569" }} />
-              <span
-                style={{
-                  color: "#475569",
-                  fontSize: "10px",
-                  fontWeight: 800,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                }}
-              >
-                Sources
-              </span>
+        {data.sources?.length > 0 && (
+          <div className="px-4 py-3 border-b border-gray-200">
+            <div className="flex items-center gap-2 mb-2 text-xs font-extrabold tracking-widest uppercase text-gray-500">
+              <ExternalLink className="h-4 w-4 text-gray-400" />
+              Sources
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+            <div className="flex flex-wrap gap-2">
               {data.sources.map((source, i) => (
                 <span
                   key={i}
-                  style={{
-                    background: "rgba(99,102,241,0.1)",
-                    border: "1px solid rgba(99,102,241,0.2)",
-                    color: "#818cf8",
-                    borderRadius: "6px",
-                    padding: "4px 10px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                  }}
+                  className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-700"
                 >
                   {source}
                 </span>
@@ -484,76 +222,27 @@ const NewsMessageCard: React.FC<NewsMessageCardProps> = ({
           </div>
         )}
 
-        {/* Follow-up suggestions */}
-        {data.followUpSuggestions && data.followUpSuggestions.length > 0 && (
-          <div style={{ padding: "12px 20px" }}>
-            <div
-              style={{
-                color: "#334155",
-                fontSize: "10px",
-                fontWeight: 800,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                marginBottom: "9px",
-              }}
-            >
+        {data.followUpSuggestions?.length > 0 && (
+          <div className="px-4 py-3">
+            <div className="mb-2 text-xs font-extrabold tracking-widest uppercase text-gray-500">
               Continue Reading
             </div>
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "5px" }}
-            >
+            <div className="space-y-2">
               {data.followUpSuggestions.map((q, i) => (
                 <button
                   key={i}
+                  type="button"
                   onClick={() => onFollowUp(q)}
-                  style={{
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                    borderRadius: "9px",
-                    padding: "8px 12px",
-                    cursor: "pointer",
-                    color: "#64748b",
-                    fontSize: "12px",
-                    textAlign: "left",
-                    transition: "all 0.18s",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "8px",
-                  }}
-                  className="follow-up-btn"
+                  className="w-full flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 hover:bg-gray-50 transition-colors"
                 >
-                  <span>{q}</span>
-                  <ChevronRight
-                    size={12}
-                    style={{ flexShrink: 0, color: "#334155" }}
-                  />
+                  <span className="text-left">{q}</span>
+                  <ChevronRight className="h-4 w-4 text-gray-400" />
                 </button>
               ))}
             </div>
           </div>
         )}
-      </div>
-
-      <style>{`
-        @keyframes msgSlideIn {
-          from { opacity: 0; transform: translateY(14px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes keyPointIn {
-          from { opacity: 0; transform: translateX(-8px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes blinkDot {
-          0%,100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-        .follow-up-btn:hover {
-          background: rgba(99,102,241,0.1) !important;
-          border-color: rgba(99,102,241,0.25) !important;
-          color: #a5b4fc !important;
-        }
-      `}</style>
+      </article>
     </div>
   );
 };

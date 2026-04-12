@@ -71,7 +71,8 @@ ONLY output valid JSON, nothing else.`,
 
   try {
     console.log(`[TruthLens OpenRouter] Calling free auto-router...`);
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const apiUrl = import.meta.env.DEV ? "/api/openrouter/api/v1/chat/completions" : "https://openrouter.ai/api/v1/chat/completions";
+    const res = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

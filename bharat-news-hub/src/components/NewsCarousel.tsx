@@ -3,12 +3,11 @@ import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 
 interface NewsCarouselProps {
   title: string;
-  icon: React.ElementType;
   className?: string;
   children: React.ReactNode;
 }
 
-const NewsCarousel = ({ title, icon: Icon, className = "", children }: NewsCarouselProps) => {
+const NewsCarousel = ({ title, className = "", children }: NewsCarouselProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scrollBy = (amount: number) => {
@@ -21,11 +20,23 @@ const NewsCarousel = ({ title, icon: Icon, className = "", children }: NewsCarou
     <section className={`relative group ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4 px-4 md:px-0">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400">
-            <Icon className="w-5 h-5 flex-shrink-0" />
-          </div>
-          <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
+        <div className="flex items-center gap-3">
+          {/* Section-specific icons */}
+          {title.toLowerCase() === "recommended for you" && (
+            <img src="/logo part.png" alt="Logo" className="h-8 md:h-10 object-contain drop-shadow-sm" />
+          )}
+          {title.toLowerCase().includes("trending") && (
+            <img src="/trending-events-icon.png" alt="Trending" className="h-8 md:h-10 object-contain drop-shadow-sm" />
+          )}
+          {title.toLowerCase().includes("global") && (
+            <img src="/global-perspective-icon.png" alt="Global" className="h-8 md:h-10 object-contain drop-shadow-sm" />
+          )}
+          <h2 
+            className="text-3xl md:text-4xl font-bold tracking-tight"
+            style={{ fontFamily: '"Noto Serif", serif' }}
+          >
+            {title}
+          </h2>
         </div>
         <button className="hidden sm:flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/80 transition-colors">
           See all

@@ -139,15 +139,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithGoogle = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (err: any) {
-      const code = err?.code || "";
-      // If popup is blocked, fall back to redirect flow
-      if (code === "auth/popup-blocked") {
-        await signInWithRedirect(auth, googleProvider);
-        // Throw special error so handleGoogle knows we're redirecting
-        throw new Error("REDIRECTING_FOR_AUTH");
-      }
-      throw err;
+    } catch (error: any) {
+      console.error("Google sign-in error:", error);
+      // Re-throw the error so it can be caught by the caller
+      throw error;
     }
   };
 

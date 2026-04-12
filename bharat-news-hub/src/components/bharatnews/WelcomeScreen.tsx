@@ -9,208 +9,74 @@ interface WelcomeScreenProps {
 const FEATURED_TOPICS = [
   {
     category: "India",
-    icon: <Globe size={16} />,
-    color: "#FF9933",
-    bg: "rgba(255,153,51,0.1)",
-    border: "rgba(255,153,51,0.2)",
+    icon: Globe,
     queries: ["India GDP growth 2025", "Indian election results", "RBI monetary policy"],
   },
   {
     category: "Markets",
-    icon: <TrendingUp size={16} />,
-    color: "#34d399",
-    bg: "rgba(16,185,129,0.1)",
-    border: "rgba(16,185,129,0.2)",
+    icon: TrendingUp,
     queries: ["Nifty 50 today", "Global stock market", "Crude oil prices"],
   },
   {
     category: "Technology",
-    icon: <Zap size={16} />,
-    color: "#a5b4fc",
-    bg: "rgba(99,102,241,0.1)",
-    border: "rgba(99,102,241,0.2)",
+    icon: Zap,
     queries: ["AI breakthroughs 2025", "Tech startup funding", "Semiconductor news"],
   },
   {
     category: "World",
-    icon: <Newspaper size={16} />,
-    color: "#c4b5fd",
-    bg: "rgba(139,92,246,0.1)",
-    border: "rgba(139,92,246,0.2)",
+    icon: Newspaper,
     queries: ["US-China tensions", "Middle East conflict", "G20 summit"],
   },
-];
+] as const;
 
 const FEATURES = [
-  { icon: Zap, label: "Live Sources", color: "#fbbf24" },
-  { icon: Brain, label: "AI Analysis", color: "#a5b4fc" },
-  { icon: Shield, label: "Fact Checked", color: "#34d399" },
-];
+  { icon: Zap, label: "Live Sources" },
+  { icon: Brain, label: "AI Analysis" },
+  { icon: Shield, label: "Fact Checked" },
+] as const;
 
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onTopicClick }) => {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "40px 24px 20px",
-        animation: "welcomeIn 0.5s ease-out",
-      }}
-    >
-      <style>{`
-        @keyframes welcomeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes floatLogo {
-          0%,100% { transform: translateY(0px); }
-          50% { transform: translateY(-8px); }
-        }
-        .topic-query:hover {
-          background: rgba(255,255,255,0.06) !important;
-          color: #e2e8f0 !important;
-          transform: translateX(3px);
-        }
-      `}</style>
-
-      {/* Logo */}
-      <div style={{ marginBottom: "20px", animation: "floatLogo 4s ease-in-out infinite" }}>
-        <BharatNewsLogo size={80} />
+    <div className="flex flex-col items-center px-6 py-10">
+      <div className="mb-5">
+        <BharatNewsLogo size={72} />
       </div>
 
-      {/* Title */}
-      <h1
-        style={{
-          color: "#f1f5f9",
-          fontSize: "30px",
-          fontWeight: 800,
-          letterSpacing: "-0.04em",
-          margin: "0 0 8px",
-          textAlign: "center",
-        }}
-      >
-        BharatNews{" "}
-        <span
-          style={{
-            background: "linear-gradient(90deg, #FF9933, #ff6b00)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          AI
-        </span>
-      </h1>
-      <p
-        style={{
-          color: "#475569",
-          fontSize: "14px",
-          textAlign: "center",
-          maxWidth: "380px",
-          lineHeight: 1.7,
-          margin: "0 0 28px",
-        }}
-      >
-        Your AI-powered news correspondent. Ask about any topic for instant,
-        professional briefings curated from trusted global sources.
+      <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 text-center">
+        BharatNews <span className="text-blue-600">AI</span> Correspondent
+      </h2>
+      <p className="mt-2 text-sm text-gray-600 text-center max-w-[560px] leading-relaxed">
+        Ask about any topic for instant, professional briefings curated from trusted sources.
       </p>
 
-      {/* Feature pills */}
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          marginBottom: "36px",
-          flexWrap: "wrap",
-          justifyContent: "center",
-        }}
-      >
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
         {FEATURES.map((f) => (
           <div
             key={f.label}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "7px",
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.07)",
-              borderRadius: "20px",
-              padding: "6px 14px",
-            }}
+            className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700"
           >
-            <f.icon size={13} style={{ color: f.color }} />
-            <span style={{ color: "#64748b", fontSize: "12px", fontWeight: 600 }}>
-              {f.label}
-            </span>
+            <f.icon className="h-3.5 w-3.5 text-blue-600" />
+            {f.label}
           </div>
         ))}
       </div>
 
-      {/* Category topics */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-          gap: "12px",
-          width: "100%",
-          maxWidth: "640px",
-        }}
-      >
+      <div className="mt-8 w-full max-w-[760px] grid grid-cols-1 sm:grid-cols-2 gap-4">
         {FEATURED_TOPICS.map((cat) => (
-          <div
-            key={cat.category}
-            style={{
-              background: "rgba(255,255,255,0.025)",
-              backdropFilter: "blur(10px)",
-              border: `1px solid ${cat.border}`,
-              borderRadius: "14px",
-              padding: "14px",
-              overflow: "hidden",
-            }}
-          >
-            {/* Category header */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "7px",
-                marginBottom: "12px",
-              }}
-            >
-              <span style={{ color: cat.color }}>{cat.icon}</span>
-              <span
-                style={{
-                  color: cat.color,
-                  fontSize: "11px",
-                  fontWeight: 800,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                }}
-              >
+          <div key={cat.category} className="rounded-lg border border-gray-200 bg-white p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <cat.icon className="h-4 w-4 text-blue-600" />
+              <div className="text-xs font-extrabold tracking-widest uppercase text-gray-500">
                 {cat.category}
-              </span>
+              </div>
             </div>
-
-            {/* Query buttons */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <div className="space-y-2">
               {cat.queries.map((q) => (
                 <button
                   key={q}
+                  type="button"
                   onClick={() => onTopicClick(q)}
-                  className="topic-query"
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    borderRadius: "7px",
-                    padding: "7px 8px",
-                    cursor: "pointer",
-                    color: "#64748b",
-                    fontSize: "13px",
-                    textAlign: "left",
-                    transition: "all 0.18s",
-                    display: "block",
-                    width: "100%",
-                  }}
+                  className="w-full text-left rounded-md border border-transparent px-2 py-1.5 text-sm text-gray-800 hover:bg-gray-50 hover:border-gray-200 transition-colors"
                 >
                   {q}
                 </button>

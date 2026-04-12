@@ -16,7 +16,7 @@ export async function fetchFullArticle(url: string): Promise<ScrapedArticle> {
   const scraperUrl = `/api/scraper?api_key=${SCRAPER_API_KEY}&url=${targetUrl}&render=false&cors=true`;
 
   const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), 4000); // 4s timeout max for super fast fallback
+  const id = setTimeout(() => controller.abort(), 8000); // 8s timeout — scraping is high priority for accuracy
 
   const response = await fetch(scraperUrl, { signal: controller.signal });
   clearTimeout(id);

@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import { useNewsImage } from "@/hooks/useNewsImage";
-import { Heart, Bookmark, Share2 } from "lucide-react";
+import { Heart, Bookmark, Share2, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { NewsArticle } from "@/services/newsApi";
 import { formatDistanceToNow } from "date-fns";
@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 
 interface NewsCardProps {
   article: NewsArticle;
-  size?: "featured-1" | "featured-2" | "large" | "medium" | "trending" | "grid";
+  size?: "featured-main" | "featured-side" | "large" | "medium" | "trending" | "grid";
   onClick: () => void;
   imagePriority?: "high" | "low";
 }
@@ -26,6 +26,13 @@ const NewsCard = ({ article, size = "medium", onClick, imagePriority = "low" }: 
   const isLiked = profile?.likedArticles?.some(a => a.url === article.url) ?? false;
   const isSaved = profile?.savedArticles?.some(a => a.url === article.url) ?? false;
   
+  const getTrustBadge = (sourceName: string) => {
+    const reliable = ["reuters", "bbc news", "ap news", "the hindu", "the indian express", "associated press", "bloomberg"];
+    return reliable.includes(sourceName.toLowerCase()) ? "Highly Reliable" : "Verified Source";
+  };
+  const trustBadge = getTrustBadge(article.source.name);
+  const isHighlyReliable = trustBadge === "Highly Reliable";
+  
   const timeAgo = formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true });
   const loadingAttr = imagePriority === "high" ? "eager" : "lazy";
   const fetchPriorityAttr = imagePriority === "high" ? "high" : "low";
@@ -37,76 +44,69 @@ const NewsCard = ({ article, size = "medium", onClick, imagePriority = "low" }: 
     }
   };
 
-  // ═══════════ FEATURED-1 VARIANT (Compact Overlay — Indigo Accent) ═══════════
-  if (size === "featured-1") {
+  // ═══════════ FEATURED-MAIN VARIANT ═══════════
+  if (size === "featured-main") {
     return (
       <motion.div
         variants={itemVariant}
         onHoverStart={() => setIsHovered(true)}
         onHoverEnd={() => setIsHovered(false)}
-        className="group relative w-full aspect-[16/9] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-indigo-500/10 transition-shadow duration-500 cursor-pointer border border-white/10 dark:border-white/5 isolate"
+        className="group relative w-full h-full min-h-[320px] lg:min-h-[380px] rounded-[1.5rem] overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-indigo-500/20 hover:scale-[1.01] transition-all duration-500 cursor-pointer isolate border border-white/10"
         onClick={onClick}
       >
-        <div className={`absolute inset-0 z-0 bg-zinc-800 ${!loaded ? "animate-shimmer" : ""}`} />
+        <div className={`absolute inset-0 bg-zinc-800 z-0 ${!loaded ? "animate-shimmer" : ""}`} />
         <motion.img
           src={src}
           alt={article.title}
           animate={{ scale: isHovered ? 1.05 : 1 }}
           transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className={`absolute inset-0 w-full h-full object-cover z-[1] transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+          className={`absolute inset-0 w-full h-full object-cover z-10 transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
           loading={loadingAttr}
           fetchPriority={fetchPriorityAttr}
           decoding="async"
           onError={handleImageError}
           onLoad={handleImageLoad}
         />
+        {/* Dark gradient overlay for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent z-20 pointer-events-none transition-opacity duration-500 group-hover:via-black/40" />
 
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 z-[2] pointer-events-none bg-gradient-to-t from-black/90 via-black/40 to-black/5" />
-        {/* Indigo tint on hover */}
-        <div className="absolute inset-0 z-[2] pointer-events-none bg-indigo-950/0 group-hover:bg-indigo-950/15 transition-colors duration-500" />
-
-        <div className="absolute inset-0 flex flex-col justify-between p-4 md:p-5 z-[3]">
-          {/* Top */}
-          <div className="flex items-start justify-between">
-            <span className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-white bg-indigo-600 rounded-md shadow-md shadow-indigo-600/30">
-              {article.source.name}
+        <div className="relative z-30 flex flex-col justify-between h-full p-5 lg:p-7">
+          <div className="flex items-start gap-2">
+            {/* Glassmorphism Category Tag */}
+            <span className="px-4 py-1.5 text-xs font-bold text-white uppercase tracking-wider bg-white/20 backdrop-blur-md border border-white/30 rounded-full shadow-lg">
+              Featured
             </span>
-            <div className="flex gap-1.5">
-              <button
-                onClick={(e) => { e.stopPropagation(); toggleSave(article); }}
-                className="p-2 rounded-lg bg-black/30 text-white backdrop-blur-sm border border-white/10 hover:bg-black/50 transition-all"
-              >
-                <Bookmark className={`w-3.5 h-3.5 ${isSaved ? "fill-white" : ""}`} />
-              </button>
-              <button
-                onClick={handleShare}
-                className="p-2 rounded-lg bg-black/30 text-white backdrop-blur-sm border border-white/10 hover:bg-black/50 transition-all"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            <span className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white rounded-full shadow-lg border border-white/20 ${isHighlyReliable ? "bg-emerald-500/80" : "bg-blue-500/80"} backdrop-blur-md`}>
+              {isHighlyReliable ? <ShieldCheck className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+              {trustBadge}
+            </span>
           </div>
 
-          {/* Bottom */}
-          <div className="transform transition-transform duration-400 group-hover:-translate-y-0.5">
-            <h2 className="text-base md:text-lg font-bold leading-snug line-clamp-2 text-white mb-2 tracking-tight">
+          <div className="mt-auto transform transition-transform duration-500 group-hover:-translate-y-1">
+            <h2 className="text-2xl lg:text-3xl font-extrabold leading-tight line-clamp-2 text-white mb-4 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
               {article.title}
             </h2>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-                <span className="text-zinc-200 font-semibold">{article.source.name}</span>
-                <span className="w-1 h-1 rounded-full bg-indigo-400"></span>
-                <span>{timeAgo}</span>
+              <span className="text-sm font-semibold text-zinc-200 drop-shadow-md">
+                {article.source.name}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleShare}
+                  className="p-2.5 rounded-full bg-black/40 border border-white/10 text-white hover:bg-black/60 transition-colors backdrop-blur-sm"
+                  title="Share"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleLike(article); }}
+                  className={`p-2.5 rounded-full border border-white/10 backdrop-blur-sm transition-colors ${
+                    isLiked ? "bg-rose-500/80 text-white" : "bg-black/40 text-white hover:bg-black/60"
+                  }`}
+                >
+                  <Heart className={`w-4 h-4 ${isLiked ? "fill-current" : ""}`} />
+                </button>
               </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); toggleLike(article); }}
-                className={`p-1.5 rounded-full transition-all ${
-                  isLiked ? "text-rose-400 bg-rose-500/20" : "text-zinc-400 hover:text-rose-400 hover:bg-white/10"
-                }`}
-              >
-                <Heart className={`w-3.5 h-3.5 ${isLiked ? "fill-current" : ""}`} />
-              </button>
             </div>
           </div>
         </div>
@@ -114,75 +114,61 @@ const NewsCard = ({ article, size = "medium", onClick, imagePriority = "low" }: 
     );
   }
 
-  // ═══════════ FEATURED-2 VARIANT (Compact Overlay — Emerald Accent) ═══════════
-  if (size === "featured-2") {
+  // ═══════════ FEATURED-SIDE VARIANT ═══════════
+  if (size === "featured-side") {
     return (
       <motion.div
         variants={itemVariant}
         onHoverStart={() => setIsHovered(true)}
         onHoverEnd={() => setIsHovered(false)}
-        className="group relative w-full aspect-[16/9] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-emerald-500/10 transition-shadow duration-500 cursor-pointer border border-white/10 dark:border-white/5 isolate"
+        className="group relative w-full h-full min-h-[220px] rounded-[1.25rem] overflow-hidden shadow-lg hover:shadow-2xl hover:shadow-indigo-500/20 hover:scale-[1.02] transition-all duration-300 cursor-pointer isolate border border-white/10"
         onClick={onClick}
       >
-        <div className={`absolute inset-0 z-0 bg-zinc-800 ${!loaded ? "animate-shimmer" : ""}`} />
+        <div className={`absolute inset-0 bg-zinc-800 z-0 ${!loaded ? "animate-shimmer" : ""}`} />
         <motion.img
           src={src}
           alt={article.title}
           animate={{ scale: isHovered ? 1.05 : 1 }}
           transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className={`absolute inset-0 w-full h-full object-cover z-[1] transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+          className={`absolute inset-0 w-full h-full object-cover z-10 transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
           loading={loadingAttr}
           fetchPriority={fetchPriorityAttr}
           decoding="async"
           onError={handleImageError}
           onLoad={handleImageLoad}
         />
+        {/* Dark gradient overlay for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent z-20 pointer-events-none transition-opacity duration-500 group-hover:via-black/40" />
 
-        {/* Gradient overlay — different direction for visual contrast */}
-        <div className="absolute inset-0 z-[2] pointer-events-none bg-gradient-to-tr from-black/90 via-black/50 to-transparent" />
-        {/* Emerald tint on hover */}
-        <div className="absolute inset-0 z-[2] pointer-events-none bg-emerald-950/0 group-hover:bg-emerald-950/15 transition-colors duration-500" />
-
-        <div className="absolute inset-0 flex flex-col justify-between p-4 md:p-5 z-[3]">
-          {/* Top */}
-          <div className="flex items-start justify-between">
-            <span className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-white bg-emerald-600 rounded-md shadow-md shadow-emerald-600/30">
-              {article.source.name}
+        <div className="relative z-30 flex flex-col justify-between h-full p-4">
+          <div className="flex items-start gap-2">
+            {/* Glassmorphism Category Tag */}
+            <span className="px-2 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider bg-white/20 backdrop-blur-md border border-white/30 rounded-full shadow-sm">
+              Trending
             </span>
-            <button
-              onClick={(e) => { e.stopPropagation(); toggleSave(article); }}
-              className="p-2 rounded-lg bg-black/30 text-white backdrop-blur-sm border border-white/10 hover:bg-black/50 transition-all"
-            >
-              <Bookmark className={`w-3.5 h-3.5 ${isSaved ? "fill-white" : ""}`} />
-            </button>
+            <span className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-white rounded-full shadow-sm border border-white/20 ${isHighlyReliable ? "bg-emerald-500/80" : "bg-blue-500/80"} backdrop-blur-md`}>
+              {isHighlyReliable ? <ShieldCheck className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+              {trustBadge}
+            </span>
           </div>
 
-          {/* Bottom */}
-          <div className="transform transition-transform duration-400 group-hover:-translate-y-0.5">
-            <h2 className="text-base md:text-lg font-bold leading-snug line-clamp-2 text-white mb-2 tracking-tight">
+          <div className="mt-auto transform transition-transform duration-500 group-hover:-translate-y-1">
+            <h3 className="text-sm font-bold leading-tight line-clamp-3 text-white mb-3 shadow-sm drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
               {article.title}
-            </h2>
+            </h3>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[11px] text-zinc-400">
-                <span className="text-zinc-200 font-semibold">{article.source.name}</span>
-                <span className="w-1 h-1 rounded-full bg-emerald-400"></span>
-                <span>{timeAgo}</span>
-              </div>
-              <div className="flex gap-1">
+              <span className="text-[10px] text-gray-300 font-medium truncate pr-2 drop-shadow-md">
+                {article.source.name}
+              </span>
+              <div className="flex gap-1.5">
                 <button
-                  onClick={handleShare}
-                  className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); toggleLike(article); }}
-                  className={`p-1.5 rounded-full transition-all ${
-                    isLiked ? "text-rose-400 bg-rose-500/20" : "text-zinc-400 hover:text-rose-400 hover:bg-white/10"
-                  }`}
-                >
-                  <Heart className={`w-3.5 h-3.5 ${isLiked ? "fill-current" : ""}`} />
-                </button>
+                onClick={(e) => { e.stopPropagation(); toggleLike(article); }}
+                className={`p-1.5 rounded-full backdrop-blur-md transition-colors ${
+                  isLiked ? "bg-white/20 text-rose-400" : "bg-white/10 text-white hover:bg-white/20"
+                }`}
+              >
+                <Heart className={`w-3.5 h-3.5 ${isLiked ? "fill-current" : ""}`} />
+              </button>
               </div>
             </div>
           </div>
@@ -294,9 +280,11 @@ const NewsCard = ({ article, size = "medium", onClick, imagePriority = "low" }: 
             </h3>
             <div className="flex items-center justify-between">
                <span className="text-[10px] text-gray-300 font-medium truncate pr-2">{article.source.name}</span>
-               <button onClick={(e) => { e.stopPropagation(); toggleLike(article); }} className={`p-1.5 rounded-full backdrop-blur-md bg-white/10 transition-colors hover:bg-white/20 ${isLiked ? "text-red-400" : "text-white"}`}>
+               <div className="flex gap-1">
+                 <button onClick={(e) => { e.stopPropagation(); toggleLike(article); }} className={`p-1.5 rounded-full backdrop-blur-md bg-white/10 transition-colors hover:bg-white/20 ${isLiked ? "text-red-400" : "text-white"}`}>
                 <Heart className={`w-3.5 h-3.5 ${isLiked ? "fill-current" : ""}`} />
               </button>
+              </div>
             </div>
           </div>
         </div>

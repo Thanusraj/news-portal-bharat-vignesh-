@@ -232,7 +232,7 @@ const Dashboard = ({ onPersonalLoadComplete }: DashboardProps) => {
 
   const tickerArticles = useMemo(() => personalNews.slice(0, 5), [personalNews]);
   // Runtime image quality validation — only shows articles with real high-res cover photos
-  const { featured: featuredArticles, validating: featuredValidating } = useHighQualityFeatured(personalNews, 2, personalLoading);
+  const { featured: featuredArticles, validating: featuredValidating } = useHighQualityFeatured(personalNews, 3, personalLoading);
   const remainingArticles = useMemo(() => {
     const featuredUrls = new Set(featuredArticles.map(a => a.url));
     const arr = personalNews.filter(a => !featuredUrls.has(a.url));
@@ -283,37 +283,53 @@ const Dashboard = ({ onPersonalLoadComplete }: DashboardProps) => {
 
           {!apiError && (
             <>
-              {/* FEATURED SECTION — Compact Duo */}
+              {/* FEATURED SECTION */}
               <section className="animate-fade-in">
                 {(personalLoading || featuredValidating) ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[0, 1].map((i) => (
-                      <div key={i} className="relative rounded-2xl overflow-hidden border border-border/40 bg-muted/30 aspect-[16/9]">
-                        <Skeleton className="absolute inset-0 rounded-2xl animate-shimmer" />
-                        <div className="absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-background/90 to-transparent" />
-                        <div className="absolute bottom-0 left-0 right-0 p-4 space-y-2">
-                          <Skeleton className="h-3 w-16 rounded-md bg-background/40" />
-                          <Skeleton className="h-4 w-full bg-background/50" />
-                          <Skeleton className="h-4 w-3/4 bg-background/50" />
-                        </div>
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-5 lg:gap-6">
+                    {/* Main Card Skeleton - Simple Block */}
+                    <Skeleton className="w-full h-full min-h-[320px] lg:min-h-[380px] rounded-[1.5rem] animate-shimmer border border-border/40 bg-muted/30" />
+                    
+                    {/* Side Cards Skeletons - Simple Blocks */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
+                      {[0, 1].map((i) => (
+                        <Skeleton key={i} className="w-full h-full min-h-[220px] rounded-[1.25rem] animate-shimmer border border-border/40 bg-muted/30" />
+                      ))}
+                    </div>
                   </div>
                 ) : featuredArticles.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <NewsCard
-                      article={featuredArticles[0]}
-                      size="featured-1"
-                      imagePriority="high"
-                      onClick={() => openArticle(featuredArticles[0])}
-                    />
-                    {featuredArticles.length > 1 && (
+                  <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-5 lg:gap-6">
+                    {/* Left side main card (60%) */}
+                    <div className="flex flex-col h-full">
                       <NewsCard
-                        article={featuredArticles[1]}
-                        size="featured-2"
+                        article={featuredArticles[0]}
+                        size="featured-main"
                         imagePriority="high"
-                        onClick={() => openArticle(featuredArticles[1])}
+                        onClick={() => openArticle(featuredArticles[0])}
                       />
+                    </div>
+                    {/* Right side grid (40%) - side by side to make them more square/portrait */}
+                    {featuredArticles.length > 1 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 h-full">
+                        <div className="flex flex-col h-full">
+                          <NewsCard
+                            article={featuredArticles[1]}
+                            size="featured-side"
+                            imagePriority="high"
+                            onClick={() => openArticle(featuredArticles[1])}
+                          />
+                        </div>
+                        {featuredArticles.length > 2 && (
+                          <div className="flex flex-col h-full">
+                            <NewsCard
+                              article={featuredArticles[2]}
+                              size="featured-side"
+                              imagePriority="high"
+                              onClick={() => openArticle(featuredArticles[2])}
+                            />
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 ) : null}

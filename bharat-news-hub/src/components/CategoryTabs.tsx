@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
+import { GlassButton } from "@/components/ui/glass-button";
 
 interface CategoryTabsProps {
   categories: string[];
@@ -13,28 +14,23 @@ const CategoryTabs = ({ categories, activeCategory, onSelect }: CategoryTabsProp
       <div className="flex overflow-x-auto scrollbar-hide px-4 py-2">
         <div className="flex gap-2.5 mx-auto">
           {categories.map((cat) => {
-          const isActive = activeCategory === cat;
-          return (
-            <button
-              key={cat}
-              onClick={() => onSelect(cat)}
-              className={`relative px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex-shrink-0 cursor-pointer outline-none ${
-                isActive 
-                  ? "text-white" 
-                  : "bg-white/60 dark:bg-slate-800/60 backdrop-blur-md text-foreground/70 hover:bg-white/90 dark:hover:bg-slate-800 border border-border/50 hover:shadow-sm"
-              }`}
-            >
-              {isActive && (
-                <motion.div
-                  layoutId="activeTabBadge"
-                  className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 -z-10 shadow-lg shadow-indigo-500/25 glow-indigo"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                />
-              )}
-              {cat}
-            </button>
-          );
-        })}
+            const isActive = activeCategory === cat;
+            return (
+              <GlassButton
+                key={cat}
+                onClick={() => onSelect(cat)}
+                size="sm"
+                className={`flex-shrink-0 transition-all duration-300 ${
+                  isActive
+                    ? "bg-white/30 backdrop-blur-md border border-white/50 shadow-[0_4px_30px_rgba(0,0,0,0.1)] dark:bg-white/10 dark:border-white/20 text-slate-800 dark:text-white"
+                    : "bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 shadow-sm dark:bg-white/5 dark:border-white/10 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300"
+                }`}
+                contentClassName={`font-semibold`}
+              >
+                {cat}
+              </GlassButton>
+            );
+          })}
         </div>
       </div>
       {/* Fade edges */}

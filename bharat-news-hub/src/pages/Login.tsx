@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { getRedirectResult } from "firebase/auth";
 import { auth } from "@/config/firebase";
 import { Button } from "@/components/ui/button";
 import { Newspaper, Mail, Lock, Eye, EyeOff, Sparkles } from "lucide-react";
@@ -19,18 +18,8 @@ const Login = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const hasNavigatedRef = useRef(false);
 
-  useEffect(() => {
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user && !hasNavigatedRef.current) {
-          hasNavigatedRef.current = true;
-          navigate("/", { replace: true });
-        }
-      })
-      .catch((err) => {
-        console.warn("Redirect result error:", err);
-      });
-  }, [navigate]);
+  // The global auth listener effect handles navigating once fully loaded
+  // No getRedirectResult needed since we switched to popup
 
   useEffect(() => {
     if (!authLoading && user && !hasNavigatedRef.current) {
@@ -50,6 +39,10 @@ const Login = () => {
       case "auth/user-not-found": return "No account found with this email.";
       case "auth/email-already-in-use": return "An account with this email already exists.";
       case "auth/weak-password": return "Password is too weak — use at least 6 characters.";
+      case "auth/network-request-failed": return "Network error. Please check your internet connection.";
+      case "auth/too-many-requests": return "Too many login attempts. Please try again later.";
+      case "auth/invalid-api-key": return "Authentication configuration error. Please contact support.";
+      case "auth/operation-not-supported-in-this-environment": return "Google Sign-In is not available in this environment.";
       default: return err?.message || "Authentication failed. Please try again.";
     }
   };
@@ -64,10 +57,12 @@ const Login = () => {
       } else {
         await signInWithEmail(email, password);
       }
+      // We don't use setSubmitLoading(false) here or navigate manually.
+      // The global effect will redirect when loadProfile finishes.
     } catch (err: any) {
       setError(friendlyError(err));
+      setSubmitLoading(false);
     }
-    setSubmitLoading(false);
   };
 
   const handleGoogle = async () => {
@@ -75,13 +70,12 @@ const Login = () => {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      hasNavigatedRef.current = true;
-      navigate("/", { replace: true });
+      // We don't navigate here manually. 
+      // The useEffect listening to `user` and `authLoading` will automatically 
+      // navigate to "/" once Firebase and Firestore finish loading the profile.
+      // Note: Don't reset setGoogleLoading here - let it stay true until navigation completes
     } catch (err: any) {
-      if (err.message === "REDIRECTING_FOR_AUTH") {
-        // Stop here; the page is redirecting to Google's sign-in page
-        return;
-      }
+      console.error("Google login error:", err);
       setError(friendlyError(err));
       setGoogleLoading(false);
     }

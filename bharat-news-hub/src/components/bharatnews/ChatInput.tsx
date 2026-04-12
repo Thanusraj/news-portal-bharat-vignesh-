@@ -54,9 +54,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
     <div
       style={{
         padding: "14px 20px 18px",
-        borderTop: "1px solid rgba(255,255,255,0.05)",
-        background: "rgba(4,8,22,0.7)",
-        backdropFilter: "blur(16px)",
       }}
     >
       {/* Hot topic chips — only show when empty */}
@@ -200,7 +197,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
       <div
         style={{
           textAlign: "center",
-          color: "#1e293b",
+          color: "#64748b",
           fontSize: "11px",
           marginTop: "8px",
         }}

@@ -25,6 +25,18 @@ export interface NewsResponse {
   followUpSuggestions: string[];
   category?: string;
   breaking?: boolean;
+  articleCount?: number;      // how many real articles were analyzed
+  processingSteps?: string[]; // which pipeline steps ran
+}
+
+export interface ParsedQuery {
+  intent: "news_fetch" | "explanation" | "summary" | "greeting" | "followup";
+  topic: string;
+  keywords: string[];
+  entities: string[];
+  category: string | null;
+  requiresDeepContent: boolean;
+  searchQuery: string;
 }
 
 export interface ApiConfig {

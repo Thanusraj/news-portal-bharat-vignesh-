@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     headers: {
-      "Cross-Origin-Opener-Policy": "unsafe-none",
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
       "Cross-Origin-Embedder-Policy": "unsafe-none",
     },
     hmr: {
@@ -39,6 +39,21 @@ export default defineConfig(({ mode }) => ({
         target: 'https://api.scraperapi.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/scraper/, '')
+      },
+      '/api/openrouter': {
+        target: 'https://openrouter.ai',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/openrouter/, '')
+      },
+      '/api/huggingface': {
+        target: 'https://api-inference.huggingface.co',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/huggingface/, '')
+      },
+      '/api/translate': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/translate/, '/translate')
       }
     }
   },

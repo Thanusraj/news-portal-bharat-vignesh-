@@ -91,7 +91,7 @@ export async function sendNewsQueryGroq(
     }));
 
   const response = await fetch(
-    "https://api.groq.com/openai/v1/chat/completions",
+    "/api/groq/openai/v1/chat/completions",
     {
       method: "POST",
       headers: {

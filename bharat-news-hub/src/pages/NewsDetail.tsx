@@ -3,12 +3,14 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNewsImage } from "@/hooks/useNewsImage";
 import Header from "@/components/Header";
+import LanguageSelector from "@/components/LanguageSelector";
 import { Button } from "@/components/ui/button";
-import { Heart, Bookmark, ExternalLink, ArrowLeft, Clock, Building, Sparkles, Loader2, FileText, RefreshCw } from "lucide-react";
+import { Heart, Bookmark, ExternalLink, ArrowLeft, Clock, Building, Sparkles, Loader2, FileText, RefreshCw, Volume2, VolumeX } from "lucide-react";
 import { format } from "date-fns";
 import type { NewsArticle } from "@/services/newsApi";
 import { fastGenerateArticle } from "@/services/openrouterApi";
-import DOMPurify from "dompurify";
+import { sanitizeHtmlWithStyles } from "@/utils/htmlSanitizer";
+import { translateArticle } from "@/services/translationService";
 
 const NewsDetail = () => {
   const location = useLocation();
@@ -20,6 +22,97 @@ const NewsDetail = () => {
   const [fullArticleHtml, setFullArticleHtml] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const [usedFallback, setUsedFallback] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // ===== TRANSLATION STATE =====
+  const [selectedLang, setSelectedLang] = useState("english");
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translatedHtml, setTranslatedHtml] = useState<string | null>(null);
+  const [originalHtml, setOriginalHtml] = useState<string | null>(null);
+  const [translationProgress, setTranslationProgress] = useState<string>("");
+  const [translationEngine, setTranslationEngine] = useState<string>("");
+  const [translationError, setTranslationError] = useState<string | null>(null);
+
+  /**
+   * Translates article HTML using the robust translation service.
+   * Engine priority: Local IndicTrans2 server → Browser-side MyMemory API.
+   * If "english" is selected, it reverts to the original.
+   */
+  const handleLanguageChange = async (langKey: string) => {
+    setSelectedLang(langKey);
+    setTranslationError(null);
+
+    // If switching back to English, just show the original
+    if (langKey === "english") {
+      if (originalHtml) {
+        setFullArticleHtml(originalHtml);
+      }
+      setTranslatedHtml(null);
+      setTranslationEngine("");
+      return;
+    }
+
+    // Store the original English HTML on first translation
+    const htmlToTranslate = originalHtml || fullArticleHtml;
+    if (!htmlToTranslate) return;
+    if (!originalHtml) {
+      setOriginalHtml(htmlToTranslate);
+    }
+
+    setIsTranslating(true);
+    setTranslationProgress("Starting translation...");
+
+    try {
+      const result = await translateArticle(
+        htmlToTranslate,
+        langKey,
+        (done, total) => {
+          setTranslationProgress(`Translating: ${done}/${total} segments`);
+        }
+      );
+
+      if (result.success && result.translatedHtml) {
+        setTranslatedHtml(result.translatedHtml);
+        setFullArticleHtml(result.translatedHtml);
+        setTranslationEngine(result.engine);
+        setTranslationError(null);
+      } else {
+        setTranslationError(result.error || "Translation failed. Please try again.");
+      }
+    } catch (err: any) {
+      console.error("Translation request failed:", err.message);
+      setTranslationError(err.message || "Translation failed unexpectedly.");
+    } finally {
+      setIsTranslating(false);
+      setTranslationProgress("");
+    }
+  };
+
+  const toggleSpeakArticle = (textHtml: string | null) => {
+    if (!textHtml) return;
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = textHtml;
+    const plainText = tempDiv.textContent || tempDiv.innerText || "";
+
+    if (plainText.trim() === "") return;
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(plainText);
+    utterance.lang = 'en-IN';
+    utterance.rate = 1;
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  };
 
   const processArticle = useCallback(async () => {
     if (!article?.url) return;
@@ -45,10 +138,7 @@ const NewsDetail = () => {
       });
 
       if (!mounted) return;
-      const cleanHtml = DOMPurify.sanitize(generated, {
-        ADD_ATTR: ['class'],
-        ADD_TAGS: ['div'],
-      });
+      const cleanHtml = sanitizeHtmlWithStyles(generated);
       setFullArticleHtml(cleanHtml);
       setAiState("done");
     } catch (aiFallbackErr: any) {
@@ -61,12 +151,13 @@ const NewsDetail = () => {
 
     return () => {
       mounted = false;
+      window.speechSynthesis.cancel();
     };
   }, [article]);
 
   useEffect(() => {
     if (!article?.url || aiState !== "idle") return;
-    
+
     // ===== N8N INSTANT LOAD BYPASS =====
     // If the article already contains n8n-generated AI content, we instantly inject it
     // into the view, completely bypassing the slow ScraperAPI -> OpenRouter pipeline!
@@ -74,7 +165,7 @@ const NewsDetail = () => {
       setFullArticleHtml(article.ai_content);
       setAiState("done");
       // Set to true so the UI knows it's an AI article (from db instead of fallback)
-      setUsedFallback(false); 
+      setUsedFallback(false);
       return;
     }
 
@@ -140,38 +231,98 @@ const NewsDetail = () => {
         {/* Content Section */}
         {aiState === "scraping" || aiState === "optimizing" || aiState === "generating" ? (
           <div className="mb-10 p-8 border rounded-2xl bg-muted/20 flex flex-col items-center justify-center text-center">
-            <Loader2 className="w-10 h-10 animate-spin text-primary mb-4 motion-reduce:animate-none" />
+
+            {/* Custom Logo & Loading Circle setup */}
+            <div className="relative flex items-center justify-center w-24 h-24 mb-6">
+              {/* Outer spinning loading circle */}
+              <div className="absolute inset-0 rounded-full border-[3.5px] border-primary/20 border-t-primary animate-spin shadow-[0_0_15px_rgba(var(--primary),0.2)]"></div>
+
+              {/* Optional inner reverse spinning circle just for premium feel */}
+              <div className="absolute inset-2 rounded-full border-[3.5px] border-primary/10 border-b-primary animate-[spin_1.5s_linear_infinite_reverse]"></div>
+
+              {/* Logo Image */}
+              <img src="/logo part.png" alt="AI Generator Logo" className="w-12 h-12 object-contain z-10 relative left-0.5" />
+            </div>
+
             <h3 className="text-xl font-bold mb-2">
-              {aiState === "scraping" 
-                ? "Extracting Article..." 
-                : aiState === "optimizing" 
+              {aiState === "scraping"
+                ? "Extracting Article..."
+                : aiState === "optimizing"
                   ? "AI Optimizing Formatting..."
                   : "Generating with AI..."}
             </h3>
-            <p className="text-muted-foreground text-sm max-w-sm">
-              Using Hyper-Speed AI (Groq + OpenRouter) to rapidly generate a comprehensive article from the breaking news metadata...
-            </p>
           </div>
         ) : aiState === "done" && fullArticleHtml ? (
           <div className="mb-10">
-            <div className="flex items-center gap-2 mb-6">
-              <Sparkles className="w-5 h-5 text-primary" />
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-primary to-orange-500 bg-clip-text text-transparent">
-                {article?.ai_content ? "n8n AI Generated Article" : usedFallback ? "AI Generated Article" : "AI Optimized Read"}
-              </h3>
+            <div className="flex items-center justify-between gap-2 mb-8">
+              <div className="flex items-center gap-3">
+                <img src="/logo part.png" alt="Logo" className="h-8 w-auto object-contain drop-shadow-sm" />
+                <h3 className="text-2xl font-bold text-foreground">
+                  {article?.ai_content ? "n8n AI Generated Article" : usedFallback ? "AI Generated Article" : "AI Optimized Read"}
+                </h3>
+              </div>
+              <Button
+                variant={isSpeaking ? "default" : "outline"}
+                size="sm"
+                className="gap-2 rounded-full font-bold shadow-sm"
+                onClick={() => toggleSpeakArticle(fullArticleHtml)}
+              >
+                {isSpeaking ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                {isSpeaking ? "Stop Listening" : "Listen"}
+              </Button>
             </div>
+
+            {/* Badge for workflow-generated content */}
             {article?.ai_content ? (
-              <p className="text-xs text-muted-foreground mb-4 bg-muted/40 px-3 py-2 rounded-lg inline-block border border-primary/20">
-                ⚡ Delivered instantly from your background n8n workflow
-              </p>
-            ) : usedFallback ? (
-              <p className="text-xs text-muted-foreground mb-4 bg-muted/40 px-3 py-2 rounded-lg inline-block border border-orange-500/20">
-                ℹ️ Full extraction was unavailable. Generated live by AI from metadata.
-              </p>
+              <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30">
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                <p className="text-sm font-semibold text-primary">⚡ Powered by n8n Workflow</p>
+              </div>
             ) : null}
+
+            {/* Language Selector for IndicTrans2 translation */}
+            <LanguageSelector
+              selectedLang={selectedLang}
+              onSelectLanguage={handleLanguageChange}
+              isTranslating={isTranslating}
+            />
+
+            {/* Translating progress overlay */}
+            {isTranslating && (
+              <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/5 border border-primary/20">
+                <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+                <p className="text-sm font-medium text-primary">
+                  {translationProgress || "Connecting to translation engine..."}
+                </p>
+              </div>
+            )}
+
+            {/* Translation error message */}
+            {translationError && !isTranslating && (
+              <div className="mb-4 flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-destructive/10 border border-destructive/30">
+                <p className="text-sm font-medium text-destructive">{translationError}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 gap-1"
+                  onClick={() => handleLanguageChange(selectedLang)}
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Retry
+                </Button>
+              </div>
+            )}
+
+            {/* Engine badge when translation is active */}
+            {translationEngine && selectedLang !== "english" && !isTranslating && !translationError && (
+              <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 border border-green-200 dark:bg-green-500/10 dark:border-green-500/30">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                <p className="text-xs font-semibold text-green-700 dark:text-green-400">Translated via {translationEngine}</p>
+              </div>
+            )}
+
             {/* We apply prose typography classes to beautifully style the HTML from AI */}
-            <div 
-              className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-extrabold prose-headings:text-foreground prose-h2:text-3xl prose-h2:mt-12 prose-h2:mb-6 prose-h2:border-b prose-h2:border-border prose-h2:pb-3 prose-h3:text-xl prose-h3:text-primary prose-h3:mt-8 prose-a:text-primary prose-li:marker:text-primary prose-p:text-foreground/90 prose-p:leading-8 prose-p:text-justify prose-p:mb-6 prose-blockquote:border-l-primary prose-blockquote:bg-muted/30 prose-blockquote:px-6 prose-blockquote:py-2 prose-blockquote:rounded-r-lg prose-blockquote:not-italic" 
+            <div
+              className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-extrabold prose-headings:text-foreground prose-h2:text-2xl prose-h2:font-bold prose-h2:text-foreground prose-h2:mt-8 prose-h2:mb-6 prose-h2:pb-3 prose-h2:border-b-2 prose-h2:border-foreground/20 prose-h3:text-lg prose-h3:font-bold prose-h3:text-foreground prose-h3:mt-6 prose-h3:mb-4 prose-a:text-primary prose-a:font-semibold prose-li:marker:text-primary prose-p:text-foreground/85 prose-p:leading-8 prose-p:text-justify prose-p:mb-5 prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:bg-primary/10 prose-blockquote:px-6 prose-blockquote:py-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic prose-blockquote:text-foreground/80 prose-blockquote:font-semibold"
               style={{ fontFamily: "'Source Sans 3', sans-serif" }}
               dangerouslySetInnerHTML={{ __html: fullArticleHtml }}
             />
@@ -182,13 +333,13 @@ const NewsDetail = () => {
               <FileText className="w-5 h-5 text-muted-foreground" />
               <h3 className="text-xl font-bold">Content Preview</h3>
             </div>
-            
+
             {aiState === "error" && (
               <div className="text-sm text-destructive mb-4 border border-destructive/50 bg-destructive/10 p-4 rounded-xl flex items-center justify-between">
                 <span>AI processing failed: {aiError}. Showing standard preview.</span>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="ml-3 gap-1 shrink-0"
                   onClick={() => { setAiState("idle"); }}
                 >

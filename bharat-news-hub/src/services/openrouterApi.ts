@@ -18,9 +18,39 @@ export interface GeminiArticleInput {
  */
 const FREE_MODEL = "openrouter/free";
 
+/**
+ * Fetches Wikipedia summary for accurate entity context.
+ */
+async function fetchWikiContext(title: string): Promise<string> {
+  try {
+    const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(title)}&utf8=&format=json&origin=*`;
+    const searchRes = await fetch(searchUrl);
+    const searchData = await searchRes.json();
+    if (!searchData.query?.search?.length) return "";
+    
+    const pageTitle = searchData.query.search[0].title;
+    
+    const extractUrl = `https://en.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(pageTitle)}&format=json&origin=*`;
+    const extractRes = await fetch(extractUrl);
+    const extractData = await extractRes.json();
+    
+    const pages = extractData.query?.pages;
+    if (!pages) return "";
+    const pageIds = Object.keys(pages);
+    if (!pageIds.length || pageIds[0] === "-1") return "";
+    
+    const text = pages[pageIds[0]].extract || "";
+    // Only return first ~1000 characters to keep it fast and within context
+    return text.slice(0, 1000);
+  } catch (err) {
+    console.warn("Wiki fetch failed", err);
+    return "";
+  }
+}
+
 /** Helper: call OpenRouter with a prompt using the free auto-router */
 async function callAI(prompt: string): Promise<string> {
-  const url = "https://openrouter.ai/api/v1/chat/completions";
+  const url = import.meta.env.DEV ? "/api/openrouter/api/v1/chat/completions" : "https://openrouter.ai/api/v1/chat/completions";
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
@@ -75,24 +105,42 @@ async function callAI(prompt: string): Promise<string> {
 }
 
 export async function generateFullArticle(article: GeminiArticleInput): Promise<string> {
-  const prompt = `You are an expert news journalist. Based on the following real news article data, write a comprehensive, detailed, and well-structured news article. Expand on the topic with relevant context, background information, and analysis.
+  const prompt = `You are an award-winning news journalist. Based on the following real news article data, write a comprehensive, detailed, and well-structured news article in PURE HTML FORMAT ONLY.
+
+**CRITICAL: NO MARKDOWN SYNTAX AT ALL!**
+- NO ** or __ for bold
+- NO # for headings
+- NO * for lists
+Output ONLY HTML tags like <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>
 
 IMPORTANT RULES:
-1. Write the full article body FIRST. You MUST divide the article into clear visual sections. EVERY section MUST have an <h2> heading tag. Do not use plain text or bold text for headings. Example: <h2>Section Heading</h2>
-2. Always write content using separate, elegant paragraphs wrapped in <p> tags. Leave blank lines between paragraphs in your output for readibility. Do not use <br> for spacing.
-3. End the article with a Key Takeaways section at the very bottom. You MUST wrap this section in exactly this markup (do not alter the classes):
-<div class="bg-primary/5 border-l-4 border-primary p-6 rounded-r-xl mt-10 mb-4">
-  <h3 class="text-xl font-bold text-primary mb-4 mt-0">Key Takeaways</h3>
-  <ul class="space-y-3 mb-0">
-    <li>[Point 1]</li>
-    <li>[Point 2]</li>
+1. START with a powerful 1-2 sentence SUMMARY in a <p> tag that hooks readers immediately.
+
+2. Then divide the article into CLEAR VISUAL SECTIONS. Every major section MUST use an <h2> tag with inline styling:
+<h2 style="font-weight: bold; font-size: 24px; color: #000000; margin: 32px 0 20px 0; border-bottom: 2px solid #000000; padding-bottom: 12px;">Why This Matters</h2>
+
+3. For subsections, use <h3> tags with inline styling:
+<h3 style="font-weight: bold; font-size: 18px; color: #000000; margin: 24px 0 16px 0;">Sub-topic Name</h3>
+
+4. Always write content using separate, elegant paragraphs wrapped in <p> tags. Leave whitespace between paragraphs.
+
+5. Use <strong> for bold text within paragraphs, <em> for italic text.
+
+6. Use <ul> and <li> tags for bullet lists, <ol> and <li> for numbered lists (NOT * or -)
+
+7. End with Key Takeaways in this format:
+<div style="background-color: #faf5ff; border-left: 4px solid #000000; padding: 24px; border-radius: 0 8px 8px 0; margin-top: 40px; margin-bottom: 16px;">
+  <h3 style="font-weight: bold; color: #000000; font-size: 20px; margin-top: 0; margin-bottom: 16px;">Key Takeaways</h3>
+  <ul style="margin: 0; padding-left: 20px; list-style: disc;">
+    <li style="margin-bottom: 12px;"><strong>Point 1:</strong> Description</li>
+    <li style="margin-bottom: 12px;"><strong>Point 2:</strong> Description</li>
+    <li style="margin-bottom: 0;"><strong>Point 3:</strong> Description</li>
   </ul>
 </div>
-3. Include relevant background context and explain why this news matters.
-4. Output ONLY clean semantic HTML (use <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>, <blockquote> tags).
-5. DO NOT wrap output in markdown code blocks or backticks.
-6. DO NOT add any preamble like "Here is the article". Start directly with the HTML content.
-7. The article should be beautifully formatted for a premium reading experience.
+
+8. Output ONLY HTML. NO markdown, NO ** or #, NO * for lists.
+9. NO preamble or intro text. Start directly with <h2> or <p> tag.
+10. Article must have clear visual hierarchy with colored headings and proper spacing.
 
 Source Data:
 - Title: ${article.title}
@@ -107,34 +155,63 @@ Source Data:
 }
 
 /**
- * HYBER-SPEED GENERATION ENGINE ⚡
+ * HYPER-SPEED GENERATION ENGINE
  * Instead of relying purely on OpenRouter (which can take 15-30 seconds), this engine
  * fires the prompt to Groq (Llama 3.1 8B Instant) which completes in 1-2 seconds.
  * If Groq fails or rate limits, it falls back to the reliable OpenRouter free layer.
+ * Wikipedia API is queried first for factual grounding.
  */
 export async function fastGenerateArticle(article: GeminiArticleInput): Promise<string> {
-  const prompt = `You are an expert news journalist. Based on the following real news article data, write a comprehensive, detailed, and well-structured news article. Expand on the topic with relevant context, background information, and analysis.
+  // Fetch Wikipedia context for accuracy
+  let wikiContextStr = "";
+  try {
+    const searchTopic = article.title.split(" ").slice(0, 5).join(" ");
+    const wikiText = await fetchWikiContext(searchTopic);
+    if (wikiText) {
+      wikiContextStr = `\n- Wikipedia True Context (MUST BE ACCURATE): ${wikiText}`;
+    }
+  } catch (e) {}
+
+  const prompt = `You are an award-winning news journalist. Write a comprehensive news article in PURE HTML FORMAT ONLY. Make it engaging and compelling. Ensure all facts are highly accurate and grounded.
+
+**CRITICAL: NO MARKDOWN! Output ONLY HTML tags.**
+- NO ** or __ for bold
+- NO # for headings
+- NO * for lists
+Use <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em> instead.
 
 IMPORTANT RULES:
-1. Write the full article body FIRST. You MUST divide the article into clear visual sections. EVERY section MUST have an <h2> heading tag.
-2. Always write content using separate, elegant paragraphs wrapped in <p> tags. DO NOT mash paragraphs together.
-3. End the article with a Key Takeaways section at the very bottom. You MUST wrap this section in exactly this markup (do not alter the classes):
-<div class="bg-primary/5 border-l-4 border-primary p-6 rounded-r-xl mt-10 mb-4">
-  <h3 class="text-xl font-bold text-primary mb-4 mt-0">Key Takeaways</h3>
-  <ul class="space-y-3 mb-0">
-    <li>[Point 1]</li>
-    <li>[Point 2]</li>
+1. START with a powerful 1-2 sentence SUMMARY in a <p> tag.
+
+2. Divide into CLEAR VISUAL SECTIONS using <h2> tags with inline styling:
+<h2 style="font-weight: bold; font-size: 24px; color: #000000; margin: 32px 0 20px 0; border-bottom: 2px solid #000000; padding-bottom: 12px;">Why This Matters</h2>
+
+3. Use <h3> tags for sub-sections:
+<h3 style="font-weight: bold; font-size: 18px; color: #000000; margin: 24px 0 16px 0;">Sub-topic Name</h3>
+
+4. Always write separate paragraphs in <p> tags. DO NOT mash together.
+
+5. Use <strong> for bold, <em> for italic.
+
+6. Use <ul><li> for bullets, <ol><li> for numbered lists (NOT * or -)
+
+7. End with Key Takeaways:
+<div style="background-color: #faf5ff; border-left: 4px solid #000000; padding: 24px; border-radius: 0 8px 8px 0; margin-top: 40px; margin-bottom: 16px;">
+  <h3 style="font-weight: bold; color: #000000; font-size: 20px; margin-top: 0; margin-bottom: 16px;">Key Takeaways</h3>
+  <ul style="margin: 0; padding-left: 20px; list-style: disc;">
+    <li style="margin-bottom: 12px;"><strong>Point 1:</strong> Description</li>
+    <li style="margin-bottom: 12px;"><strong>Point 2:</strong> Description</li>
+    <li style="margin-bottom: 0;"><strong>Point 3:</strong> Description</li>
   </ul>
 </div>
-4. Include relevant background context and explain why this news matters.
-5. Output ONLY clean semantic HTML (use <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>, <blockquote>).
-6. DO NOT wrap output in markdown code blocks or backticks.
-7. DO NOT add any preamble like "Here is the article" or "I am an AI". Start directly with the HTML content.
+
+8. Output ONLY HTML. NO markdown symbols.
+9. NO preamble. Start directly with content.
 
 Source Data:
 - Title: ${article.title}
 - Source: ${article.sourceName}
-- Published: ${article.publishedAt}
+- Published: ${article.publishedAt}${wikiContextStr}
 - Description: ${article.description}
 - Available Content Snippet: ${article.content}
 `;
@@ -144,7 +221,8 @@ Source Data:
     
     console.log("[FastAI] Firing prompt to Groq (Llama 3.1 8B Instant) for hyper-speed generation...");
     // We use a separate fetch to Groq here to avoid circular imports and keep it contained
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const groqUrl = import.meta.env.DEV ? "/api/groq/openai/v1/chat/completions" : "https://api.groq.com/openai/v1/chat/completions";
+    const res = await fetch(groqUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -193,27 +271,53 @@ export async function optimizeArticleText(rawText: string): Promise<string> {
   // Truncate to ~8000 chars to avoid token limits
   const truncated = rawText.slice(0, 8000);
 
-  const prompt = `You are a professional news editor. Below is the raw extracted text from a news article. Reformat it into a clean, beautiful, and well-structured news article.
+  const prompt = `You are a professional news editor. Reformat the raw text below into a beautiful news article in PURE HTML FORMAT ONLY.
+
+**CRITICAL: NO MARKDOWN! Output ONLY HTML tags.**
+- NO ** or __ for bold
+- NO # for headings
+- NO * for lists
+Use <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em> instead.
 
 IMPORTANT RULES:
-1. Write the full article body FIRST. You MUST divide the article into clear visual sections. EVERY section MUST have an <h2> heading tag. Do not use plain text or bold text for headings. Example: <h2>Section Heading</h2>
-2. Always write content using separate, elegant paragraphs wrapped in <p> tags. DO NOT mash paragraphs together. Do not use <br> for spacing.
-3. End the article with a Key Takeaways section at the very bottom. You MUST wrap this section in exactly this markup (do not alter the classes):
-<div class="bg-primary/5 border-l-4 border-primary p-6 rounded-r-xl mt-10 mb-4">
-  <h3 class="text-xl font-bold text-primary mb-4 mt-0">Key Takeaways</h3>
-  <ul class="space-y-3 mb-0">
-    <li>[Point 1]</li>
-    <li>[Point 2]</li>
+1. START with a powerful 1-2 sentence SUMMARY in a <p> tag.
+
+2. Divide into CLEAR VISUAL SECTIONS using <h2> tags with inline styling:
+<h2 style="font-weight: bold; font-size: 24px; color: #000000; margin: 32px 0 20px 0; border-bottom: 2px solid #000000; padding-bottom: 12px;">Why This Matters</h2>
+
+3. Use <h3> tags for sub-sections:
+<h3 style="font-weight: bold; font-size: 18px; color: #000000; margin: 24px 0 16px 0;">Sub-topic Name</h3>
+
+4. Always write separate paragraphs in <p> tags. DO NOT mash together.
+
+5. Use <strong> for bold, <em> for italic.
+
+6. Use <ul><li> for bullets, <ol><li> for numbered lists (NOT * or -)
+
+7. End with Key Takeaways:
+<div style="background-color: #faf5ff; border-left: 4px solid #000000; padding: 24px; border-radius: 0 8px 8px 0; margin-top: 40px; margin-bottom: 16px;">
+  <h3 style="font-weight: bold; color: #000000; font-size: 20px; margin-top: 0; margin-bottom: 16px;">Key Takeaways</h3>
+  <ul style="margin: 0; padding-left: 20px; list-style: disc;">
+    <li style="margin-bottom: 12px;"><strong>Point 1:</strong> Description</li>
+    <li style="margin-bottom: 12px;"><strong>Point 2:</strong> Description</li>
+    <li style="margin-bottom: 0;"><strong>Point 3:</strong> Description</li>
   </ul>
 </div>
-3. Remove any navigation text, ads, cookie notices, or irrelevant boilerplate.
-4. Keep all factual content intact — do NOT fabricate information.
-5. Output ONLY clean semantic HTML (use <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>, <blockquote> tags).
-6. DO NOT wrap output in markdown code blocks or backticks.
-7. DO NOT add any preamble. Start directly with the HTML content.
-8. The article should be beautifully formatted for a professional premium reading experience.
 
-Raw Text:
+8. Remove any navigation, ads, cookies, boilerplate.
+9. Keep all facts intact. Do NOT fabricate.
+10. Output ONLY HTML. NO markdown.
+11. NO preamble. Start directly with content.
+
+End with Key Takeaways:
+<div style="background-color: #faf5ff; border-left: 4px solid #000000; padding: 24px; border-radius: 0 8px 8px 0; margin-top: 40px; margin-bottom: 16px;">
+  <h3 style="font-weight: bold; color: #000000; font-size: 20px; margin-top: 0; margin-bottom: 16px;">Key Takeaways</h3>
+  <ul style="margin: 0; padding-left: 20px; list-style: disc;">
+    <li style="margin-bottom: 12px;"><strong>Point 1:</strong> Description</li>
+    <li style="margin-bottom: 12px;"><strong>Point 2:</strong> Description</li>
+    <li style="margin-bottom: 0;"><strong>Point 3:</strong> Description</li>
+  </ul>
+</div>
 ${truncated}
 `;
 

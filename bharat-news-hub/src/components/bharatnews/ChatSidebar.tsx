@@ -11,11 +11,13 @@ import {
 } from "lucide-react";
 import type { ChatSession } from "../types/newsBot.types";
 import BharatNewsLogo from "./BharatNewsLogo";
+import { cn } from "@/lib/utils";
 
 interface ChatSidebarProps {
   sessions: ChatSession[];
   activeId: string | null;
   isOpen: boolean;
+  showToggle?: boolean;
   onToggle: () => void;
   onNewChat: () => void;
   onSelectSession: (id: string) => void;
@@ -93,59 +95,33 @@ const SessionItem: React.FC<SessionItemProps> = ({
     >
       <button
         onClick={onSelect}
-        style={{
-          width: "100%",
-          background: isActive
-            ? "rgba(99,102,241,0.18)"
-            : "transparent",
-          border: `1px solid ${
-            isActive ? "rgba(99,102,241,0.35)" : "transparent"
-          }`,
-          borderRadius: "10px",
-          padding: "10px 12px",
-          cursor: "pointer",
-          textAlign: "left",
-          transition: "all 0.2s",
-          display: "flex",
-          alignItems: "flex-start",
-          gap: "10px",
-        }}
-        className="hover:bg-white/5"
+        className={cn(
+          "w-full flex items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
+          isActive
+            ? "bg-blue-50 border-blue-200"
+            : "bg-transparent border-transparent hover:bg-gray-50"
+        )}
       >
         <MessageSquare
           size={14}
-          style={{
-            color: isActive ? "#a5b4fc" : "#475569",
-            flexShrink: 0,
-            marginTop: "2px",
-          }}
+          className={cn(
+            "mt-0.5 shrink-0",
+            isActive ? "text-blue-600" : "text-gray-400"
+          )}
         />
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="flex-1 min-w-0">
           <div
-            style={{
-              color: isActive ? "#e2e8f0" : "#94a3b8",
-              fontSize: "13px",
-              fontWeight: isActive ? 600 : 500,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              marginBottom: "3px",
-            }}
+            className={cn(
+              "text-sm font-medium truncate mb-0.5",
+              isActive ? "text-gray-900" : "text-gray-700"
+            )}
           >
             {session.title}
           </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              color: "#475569",
-              fontSize: "11px",
-            }}
-          >
-            <Clock size={10} />
-            {formatRelativeTime(session.updatedAt)}
-            <span style={{ color: "#334155" }}>·</span>
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <Clock size={10} className="text-gray-400" />
+            <span>{formatRelativeTime(session.updatedAt)}</span>
+            <span className="text-gray-300">·</span>
             <span>{session.messages.length} msgs</span>
           </div>
         </div>
@@ -154,36 +130,19 @@ const SessionItem: React.FC<SessionItemProps> = ({
       {/* Action buttons on hover */}
       {showActions && (
         <div
-          style={{
-            position: "absolute",
-            right: "8px",
-            top: "50%",
-            transform: "translateY(-50%)",
-            display: "flex",
-            gap: "2px",
-            background: "rgba(8,14,40,0.95)",
-            borderRadius: "8px",
-            padding: "3px",
-            border: "1px solid rgba(255,255,255,0.08)",
-          }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 rounded-md border border-gray-200 bg-white shadow-sm p-1"
         >
           <button
             onClick={(e) => {
               e.stopPropagation();
               onPin();
             }}
-            style={{
-              background: session.pinned
-                ? "rgba(245,158,11,0.2)"
-                : "transparent",
-              border: "none",
-              borderRadius: "5px",
-              padding: "4px",
-              cursor: "pointer",
-              color: session.pinned ? "#fbbf24" : "#64748b",
-              display: "flex",
-              alignItems: "center",
-            }}
+            className={cn(
+              "inline-flex items-center justify-center h-7 w-7 rounded-md transition-colors",
+              session.pinned
+                ? "bg-amber-50 text-amber-600"
+                : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+            )}
             title="Pin"
           >
             <Pin size={12} />
@@ -193,17 +152,7 @@ const SessionItem: React.FC<SessionItemProps> = ({
               e.stopPropagation();
               onDelete();
             }}
-            style={{
-              background: "transparent",
-              border: "none",
-              borderRadius: "5px",
-              padding: "4px",
-              cursor: "pointer",
-              color: "#64748b",
-              display: "flex",
-              alignItems: "center",
-            }}
-            className="hover:text-red-400"
+            className="inline-flex items-center justify-center h-7 w-7 rounded-md text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
             title="Delete"
           >
             <Trash2 size={12} />
@@ -218,6 +167,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
   sessions,
   activeId,
   isOpen,
+  showToggle = true,
   onToggle,
   onNewChat,
   onSelectSession,
@@ -238,60 +188,27 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     <>
       {/* Sidebar panel */}
       <div
-        style={{
-          width: isOpen ? "280px" : "0px",
-          overflow: "hidden",
-          transition: "width 0.3s cubic-bezier(0.4,0,0.2,1)",
-          flexShrink: 0,
-          position: "relative",
-        }}
+        className={cn(
+          "relative shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out",
+          isOpen ? "w-[280px]" : "w-0"
+        )}
       >
         <div
-          style={{
-            width: "280px",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            background:
-              "linear-gradient(180deg, rgba(6,10,28,0.97) 0%, rgba(4,8,22,0.98) 100%)",
-            backdropFilter: "blur(20px)",
-            borderRight: "1px solid rgba(255,255,255,0.06)",
-            padding: "0",
-            overflow: "hidden",
-          }}
+          className="w-[280px] h-full flex flex-col bg-white text-gray-900"
         >
           {/* Brand header */}
           <div
-            style={{
-              padding: "20px 18px 16px",
-              borderBottom: "1px solid rgba(255,255,255,0.05)",
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-            }}
+            className="px-4 pt-4 pb-3 border-b border-gray-200 flex items-center gap-3"
           >
             <BharatNewsLogo size={40} />
             <div>
               <div
-                style={{
-                  color: "#f1f5f9",
-                  fontSize: "16px",
-                  fontWeight: 800,
-                  letterSpacing: "-0.03em",
-                  lineHeight: 1.1,
-                }}
+                className="text-sm font-extrabold leading-tight"
               >
                 BharatNews
               </div>
               <div
-                style={{
-                  color: "#FF9933",
-                  fontSize: "9px",
-                  fontWeight: 800,
-                  letterSpacing: "0.15em",
-                  textTransform: "uppercase",
-                  marginTop: "2px",
-                }}
+                className="mt-0.5 text-[10px] font-extrabold tracking-widest uppercase text-gray-500"
               >
                 AI Correspondent
               </div>
@@ -299,26 +216,10 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </div>
 
           {/* New chat button */}
-          <div style={{ padding: "14px 14px 10px" }}>
+          <div className="px-4 pt-3 pb-2">
             <button
               onClick={onNewChat}
-              style={{
-                width: "100%",
-                background:
-                  "linear-gradient(135deg, rgba(99,102,241,0.22), rgba(139,92,246,0.18))",
-                border: "1px solid rgba(99,102,241,0.3)",
-                borderRadius: "10px",
-                color: "#a5b4fc",
-                fontSize: "13px",
-                fontWeight: 700,
-                padding: "10px 14px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                transition: "all 0.2s",
-                letterSpacing: "0.01em",
-              }}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white text-sm font-semibold px-3 py-2 hover:bg-blue-700 transition-colors"
             >
               <Plus size={15} />
               New Briefing
@@ -326,88 +227,55 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </div>
 
           {/* Search */}
-          <div style={{ padding: "0 14px 10px" }}>
-            <div style={{ position: "relative" }}>
+          <div className="px-4 pb-3">
+            <div className="relative">
               <Search
                 size={13}
-                style={{
-                  position: "absolute",
-                  left: "10px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "#475569",
-                }}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
               />
               <input
                 type="text"
                 placeholder="Search history..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                style={{
-                  width: "100%",
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                  borderRadius: "8px",
-                  padding: "7px 10px 7px 30px",
-                  color: "#94a3b8",
-                  fontSize: "12px",
-                  outline: "none",
-                  boxSizing: "border-box",
-                }}
+                className="w-full h-9 rounded-lg bg-gray-50 border border-gray-200 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300"
               />
             </div>
           </div>
 
           {/* Session list */}
           <div
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              padding: "0 10px 10px",
-            }}
+            className="flex-1 overflow-y-auto px-3 pb-3"
           >
             {Object.entries(grouped).map(([groupName, groupSessions]) => {
               if (groupSessions.length === 0) return null;
               return (
-                <div key={groupName} style={{ marginBottom: "4px" }}>
+                <div key={groupName} className="mb-2">
                   <div
-                    style={{
-                      color: "#334155",
-                      fontSize: "10px",
-                      fontWeight: 800,
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      padding: "10px 4px 5px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                    }}
+                    className="px-1 pt-3 pb-1 text-[10px] font-extrabold tracking-widest uppercase text-gray-400 flex items-center gap-1.5"
                   >
                     {groupName === "Pinned" && "📌 "}
                     {groupName}
                   </div>
-                  {groupSessions.map((session) => (
-                    <SessionItem
-                      key={session.id}
-                      session={session}
-                      isActive={session.id === activeId}
-                      onSelect={() => onSelectSession(session.id)}
-                      onDelete={() => onDeleteSession(session.id)}
-                      onPin={() => onPinSession(session.id)}
-                    />
-                  ))}
+                  <div className="space-y-1">
+                    {groupSessions.map((session) => (
+                      <SessionItem
+                        key={session.id}
+                        session={session}
+                        isActive={session.id === activeId}
+                        onSelect={() => onSelectSession(session.id)}
+                        onDelete={() => onDeleteSession(session.id)}
+                        onPin={() => onPinSession(session.id)}
+                      />
+                    ))}
+                  </div>
                 </div>
               );
             })}
 
             {filteredSessions.length === 0 && (
               <div
-                style={{
-                  textAlign: "center",
-                  padding: "30px 10px",
-                  color: "#334155",
-                  fontSize: "12px",
-                }}
+                className="text-center py-10 text-sm text-gray-500"
               >
                 {search ? "No chats match your search" : "No chat history yet"}
               </div>
@@ -416,13 +284,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
           {/* Footer */}
           <div
-            style={{
-              padding: "12px 16px",
-              borderTop: "1px solid rgba(255,255,255,0.05)",
-              color: "#334155",
-              fontSize: "11px",
-              textAlign: "center",
-            }}
+            className="px-4 py-3 border-t border-gray-200 text-xs text-gray-400 text-center"
           >
             Powered by Claude AI · v2.0
           </div>
@@ -430,31 +292,19 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
       </div>
 
       {/* Toggle tab on the edge */}
-      <button
-        onClick={onToggle}
-        style={{
-          position: "absolute",
-          left: isOpen ? "280px" : "0px",
-          top: "50%",
-          transform: "translateY(-50%)",
-          zIndex: 50,
-          background: "rgba(8,14,40,0.9)",
-          backdropFilter: "blur(8px)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          borderLeft: isOpen ? "none" : "1px solid rgba(255,255,255,0.08)",
-          borderRadius: isOpen ? "0 8px 8px 0" : "8px 0 0 8px",
-          width: "20px",
-          height: "48px",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#475569",
-          transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)",
-        }}
-      >
-        {isOpen ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
-      </button>
+      {showToggle && (
+        <button
+          onClick={onToggle}
+          className={cn(
+            "absolute top-1/2 -translate-y-1/2 z-50 h-12 w-5 border border-gray-200 bg-white text-gray-500 shadow-sm flex items-center justify-center transition-all",
+            isOpen
+              ? "left-[280px] rounded-r-md border-l-0"
+              : "left-0 rounded-l-md"
+          )}
+        >
+          {isOpen ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+        </button>
+      )}
     </>
   );
 };
