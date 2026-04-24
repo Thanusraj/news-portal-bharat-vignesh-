@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Header from "@/components/Header";
 import type { ChatSession, ChatMessage } from "@/types/newsBot.types";
 import { processNewsQuery } from "@/services/newsbot/newsBotPipeline";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   X,
   Plus,
@@ -115,10 +116,72 @@ const STAGES = [
 const WELCOME_TOPICS: any[] = [];
 const HOT_TOPICS: string[] = [];
 
+const GTTS_LANG_MAP: Record<string, string> = {
+  en: "en",
+  english: "en",
+  hi: "hi",
+  hindi: "hi",
+  ta: "ta",
+  tamil: "ta",
+  te: "te",
+  telugu: "te",
+  bn: "bn",
+  bengali: "bn",
+  mr: "mr",
+  marathi: "mr",
+  gu: "gu",
+  gujarati: "gu",
+  kn: "kn",
+  kannada: "kn",
+  ml: "ml",
+  malayalam: "ml",
+};
+
+const detectTtsLanguage = (text: string, profileLanguage?: string): string => {
+  const preferred = GTTS_LANG_MAP[(profileLanguage || "").toLowerCase()];
+
+  if (/[\u0B80-\u0BFF]/.test(text)) return "ta";
+  if (/[\u0C00-\u0C7F]/.test(text)) return "te";
+  if (/[\u0980-\u09FF]/.test(text)) return "bn";
+  if (/[\u0A80-\u0AFF]/.test(text)) return "gu";
+  if (/[\u0C80-\u0CFF]/.test(text)) return "kn";
+  if (/[\u0D00-\u0D7F]/.test(text)) return "ml";
+  if (/[\u0900-\u097F]/.test(text)) return preferred === "mr" ? "mr" : "hi";
+
+  return preferred || "en";
+};
+
+const chunkTextForTts = (text: string, maxLen = 200): string[] => {
+  const chunks: string[] = [];
+  let remaining = text.replace(/\s+/g, " ").trim();
+
+  while (remaining.length > 0) {
+    if (remaining.length <= maxLen) {
+      chunks.push(remaining);
+      break;
+    }
+
+    let cutAt = -1;
+    for (let i = maxLen; i >= 0; i--) {
+      if (".!?,;: ".includes(remaining[i])) {
+        cutAt = i + 1;
+        break;
+      }
+    }
+
+    if (cutAt <= 0) cutAt = maxLen;
+    chunks.push(remaining.slice(0, cutAt).trim());
+    remaining = remaining.slice(cutAt).trim();
+  }
+
+  return chunks.filter(Boolean);
+};
+
 /* ═══════════════════════════════════════════════════════════════════
    MAIN PAGE — ChatGPT-style layout
 ═══════════════════════════════════════════════════════════════════ */
 const NewsBotPage: React.FC = () => {
+  const { profile } = useAuth();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -134,26 +197,79 @@ const NewsBotPage: React.FC = () => {
 
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const audioPlayerRef = React.useRef<HTMLAudioElement | null>(null);
+  const audioAbortRef = React.useRef(false);
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
 
-  const speakText = (id: string, text: string) => {
+  const stopAudio = useCallback(() => {
+    audioAbortRef.current = true;
+    if (audioPlayerRef.current) {
+      try {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.src = "";
+      } catch {}
+    }
     window.speechSynthesis.cancel();
-    
+    setPlayingAudioId(null);
+  }, []);
+
+  const speakText = async (id: string, text: string) => {
     if (playingAudioId === id) {
-      setPlayingAudioId(null);
-      return; 
+      stopAudio();
+      return;
     }
 
-    if (text) {
-      const utterance = new SpeechSynthesisUtterance(`${text}.`);
-      utterance.lang = 'en-IN';
-      utterance.rate = 1;
-      utterance.onend = () => setPlayingAudioId(null);
-      utterance.onerror = () => setPlayingAudioId(null);
-      setPlayingAudioId(id);
-      window.speechSynthesis.speak(utterance);
+    const plainText = text.replace(/\s+/g, " ").trim();
+    if (!plainText) return;
+
+    stopAudio();
+    audioAbortRef.current = false;
+    setPlayingAudioId(id);
+
+    const ttsLang = detectTtsLanguage(plainText, profile?.language);
+    const chunks = chunkTextForTts(plainText, 200);
+
+    if (!audioPlayerRef.current) {
+      audioPlayerRef.current = new Audio();
     }
+
+    const player = audioPlayerRef.current;
+
+    const playNext = async (index: number) => {
+      if (audioAbortRef.current) return;
+      if (index >= chunks.length) {
+        setPlayingAudioId(null);
+        return;
+      }
+
+      const url = `/api/gtts?ie=UTF-8&q=${encodeURIComponent(chunks[index])}&tl=${ttsLang}&client=tw-ob`;
+      player.src = url;
+
+      player.onended = () => {
+        playNext(index + 1);
+      };
+
+      player.onerror = () => {
+        console.error("AI article audio chunk failed to load.");
+        playNext(index + 1);
+      };
+
+      try {
+        await player.play();
+      } catch (err: any) {
+        if (err?.name !== "AbortError") {
+          console.error("AI article audio playback failed:", err);
+          setPlayingAudioId(null);
+        }
+      }
+    };
+
+    playNext(0);
   };
+
+  useEffect(() => {
+    return () => stopAudio();
+  }, [stopAudio]);
 
   /* Load sessions */
   useEffect(() => {

@@ -35,6 +35,16 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/newsdata/, '')
       },
+      '/api/thenewsapi': {
+        target: 'https://api.thenewsapi.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/thenewsapi/, '')
+      },
+      '/api/worldnewsapi': {
+        target: 'https://api.worldnewsapi.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/worldnewsapi/, '')
+      },
       '/api/scraper': {
         target: 'https://api.scraperapi.com',
         changeOrigin: true,
@@ -56,17 +66,13 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         rewrite: (path) => path.replace('/api/gtranslate', '/translate_a/single'),
       },
-      // IndicTrans2 local server (fallback translation engine)
-      '/api/translator-health': {
-        target: 'http://localhost:8000',
+      // Google TTS
+      '/api/gtts': {
+        target: 'https://translate.google.com',
         changeOrigin: true,
-        rewrite: () => '/',
+        rewrite: (path) => path.replace('/api/gtts', '/translate_tts'),
       },
-      '/api/translate': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/translate/, '/translate')
-      }
+
     }
   },
   plugins: [react()],

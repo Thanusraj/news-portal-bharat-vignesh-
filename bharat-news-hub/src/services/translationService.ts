@@ -1,10 +1,7 @@
 /**
- * Translation Service for Bharat News — HYBRID ENGINE
+ * Translation Service for Bharat News
  * =====================================================
- * Priority: Memory Cache → Google Translate (~1-3s) → IndicTrans2 (local fallback)
- *
  * Google Translate is the primary engine for speed.
- * IndicTrans2 kicks in only if Google is unavailable (offline, blocked, etc.)
  * Time taken is measured and returned to the UI.
  */
 
@@ -34,7 +31,6 @@ const translationCache = new Map<string, Map<string, string>>();
 
 // ── Timeouts ────────────────────────────────────────────────
 const GOOGLE_TIMEOUT_MS = 15_000;
-const INDICTRANS_TIMEOUT_MS = 90_000;
 /** Max parallel Google Translate requests at a time */
 const GOOGLE_CONCURRENCY = 6;
 
@@ -44,8 +40,7 @@ const GOOGLE_CONCURRENCY = 6;
 
 /**
  * Translate an article's HTML content to the target language.
- * Uses a hybrid approach: tries Google Translate first (fast),
- * falls back to IndicTrans2 local server if Google fails.
+ * Uses Google Translate (fast).
  */
 export async function translateArticle(
   htmlContent: string,
@@ -87,18 +82,8 @@ export async function translateArticle(
       engine = "Google Translate";
       console.log("[Translation] ✅ Google Translate succeeded");
     } catch (googleErr: any) {
-      console.warn("[Translation] Google Translate failed:", googleErr.message);
-
-      try {
-        console.log("[Translation] Falling back to IndicTrans2 local server…");
-        translated = await translateViaIndicTrans(textNodes, targetLang);
-        engine = "IndicTrans2 (local)";
-        console.log("[Translation] ✅ IndicTrans2 succeeded");
-      } catch (indicErr: any) {
-        throw new Error(
-          `All engines failed.\n• Google: ${googleErr.message}\n• IndicTrans2: ${indicErr.message}`
-        );
-      }
+      console.error("[Translation] Google Translate failed:", googleErr.message);
+      throw new Error(`Google Translate failed: ${googleErr.message}`);
     }
 
     // ── 4. Rebuild HTML with translations ──
@@ -190,59 +175,6 @@ async function googleTranslateOne(
   throw new Error("Unexpected Google Translate response format");
 }
 
-// =============================================================
-// ENGINE 2 — IndicTrans2 Local Server (fallback for offline)
-// =============================================================
-
-/**
- * Translate text nodes via the local IndicTrans2 Python server.
- * This is the slow path (~1-2 min on CPU) used only if Google is unavailable.
- */
-async function translateViaIndicTrans(
-  textNodes: string[],
-  targetLang: string
-): Promise<string[]> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), INDICTRANS_TIMEOUT_MS);
-
-  try {
-    const res = await fetch("/api/translate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text_nodes: textNodes,
-        target_lang: String(targetLang).trim(),
-      }),
-      signal: controller.signal,
-    });
-
-    const raw = await res.text();
-    let data: any;
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      throw new Error(`IndicTrans2 returned non-JSON (HTTP ${res.status}): ${raw.slice(0, 200)}`);
-    }
-
-    if (!res.ok) {
-      throw new Error(
-        `IndicTrans2 server error ${res.status}: ${data?.error || raw.slice(0, 200)}`
-      );
-    }
-
-    if (data.success === false) {
-      throw new Error(data.error || "IndicTrans2 returned success=false");
-    }
-
-    if (!Array.isArray(data.translated_nodes)) {
-      throw new Error("IndicTrans2 response missing translated_nodes array");
-    }
-
-    return data.translated_nodes as string[];
-  } finally {
-    clearTimeout(timeout);
-  }
-}
 
 // =============================================================
 // HTML TEXT EXTRACTION & REBUILD

@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNewsImage } from "@/hooks/useNewsImage";
 import Header from "@/components/Header";
@@ -36,7 +36,7 @@ const NewsDetail = () => {
 
   /**
    * Translates article HTML using the robust translation service.
-   * Engine priority: Local IndicTrans2 server → Browser-side MyMemory API.
+   * Engine priority: Google Translate.
    * If "english" is selected, it reverts to the original.
    */
   const handleLanguageChange = async (langKey: string) => {
@@ -101,31 +101,198 @@ const NewsDetail = () => {
     }
   };
 
-  const toggleSpeakArticle = (textHtml: string | null) => {
+  // Google Translate TTS language codes (native quality server-side processing for all Indian languages)
+  // This bypasses the fatal flaw of relying on users to install OS-level language packs.
+  const GTTS_LANG_MAP: Record<string, string> = {
+    en: "en",
+    english: "en",
+    hi: "hi",
+    hindi: "hi",
+    ta: "ta",
+    tamil: "ta",
+    te: "te",
+    telugu: "te",
+    bn: "bn",
+    bengali: "bn",
+    mr: "mr",
+    marathi: "mr",
+    gu: "gu",
+    gujarati: "gu",
+    kn: "kn",
+    kannada: "kn",
+    ml: "ml",
+    malayalam: "ml"
+  };
+
+  const detectTtsLanguage = (
+    text: string,
+    selectedLanguage: string,
+    profileLanguage?: string
+  ): string => {
+    const selected = GTTS_LANG_MAP[(selectedLanguage || "").toLowerCase()];
+    const preferred = GTTS_LANG_MAP[(profileLanguage || "").toLowerCase()];
+
+    if (/[\u0B80-\u0BFF]/.test(text)) return "ta";
+    if (/[\u0C00-\u0C7F]/.test(text)) return "te";
+    if (/[\u0980-\u09FF]/.test(text)) return "bn";
+    if (/[\u0A80-\u0AFF]/.test(text)) return "gu";
+    if (/[\u0C80-\u0CFF]/.test(text)) return "kn";
+    if (/[\u0D00-\u0D7F]/.test(text)) return "ml";
+    if (/[\u0900-\u097F]/.test(text)) {
+      return selected === "mr" || preferred === "mr" ? "mr" : "hi";
+    }
+
+    return selected || preferred || "en";
+  };
+
+  // We use a single persistent audio element to satisfy strict browser autoplay policies
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const audioAbortRef = useRef(false);
+
+  /**
+   * Split text into chunks because Google TTS enforces a 200-character strict limit.
+   */
+  const chunkTextForGtts = (text: string, maxLen = 200): string[] => {
+    const chunks: string[] = [];
+    let remaining = text;
+    while (remaining.length > 0) {
+      if (remaining.length <= maxLen) {
+        chunks.push(remaining.trim());
+        break;
+      }
+      let cutAt = -1;
+      // Seek sentence-ending punctuation safely
+      for (let i = maxLen; i >= 0; i--) {
+        if (".!?।।".includes(remaining[i])) {
+          cutAt = i + 1;
+          break;
+        }
+      }
+      if (cutAt <= 0) {
+        cutAt = remaining.lastIndexOf(" ", maxLen);
+        if (cutAt <= 0) cutAt = maxLen;
+      }
+      chunks.push(remaining.substring(0, cutAt).trim());
+      remaining = remaining.substring(cutAt).trim();
+    }
+    return chunks.filter(c => c.length > 0);
+  };
+
+  const stopAllAudio = useCallback(() => {
+    audioAbortRef.current = true;
+    if (audioPlayerRef.current) {
+      try {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.src = "";
+      } catch {}
+    }
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  }, []);
+
+  const toggleSpeakArticle = async (textHtml: string | null) => {
     if (!textHtml) return;
 
     if (isSpeaking) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
+      stopAllAudio();
       return;
     }
 
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = textHtml;
-    const plainText = tempDiv.textContent || tempDiv.innerText || "";
+    const plainText = (tempDiv.textContent || tempDiv.innerText || "").trim();
+    if (!plainText) return;
 
-    if (plainText.trim() === "") return;
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(plainText);
-    utterance.lang = 'en-IN';
-    utterance.rate = 1;
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
-
+    audioAbortRef.current = false;
     setIsSpeaking(true);
-    window.speechSynthesis.speak(utterance);
+
+    const ttsLang = detectTtsLanguage(plainText, selectedLang, profile?.language);
+
+    // For English, browser SpeechSynthesis is universally installed and reliable
+    if (ttsLang === "en") {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(plainText);
+      utterance.lang = "en-IN";
+      const voices = window.speechSynthesis.getVoices();
+      const enVoice = voices.find(v => v.lang.startsWith("en"));
+      if (enVoice) utterance.voice = enVoice;
+      
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = (e) => {
+        if (e.error !== 'canceled') setIsSpeaking(false);
+      };
+      // Override local active cancel
+      (window as any)._activeStopAudio = () => {
+        audioAbortRef.current = true;
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+      };
+      window.speechSynthesis.speak(utterance);
+      return;
+    }
+
+    // For Indian Languages: Utilize Google Translate TTS securely via Vite Proxy
+    try {
+      const chunks = chunkTextForGtts(plainText, 200);
+      
+      // Initialize shared audio element (required for autoplay policy)
+      if (!audioPlayerRef.current) {
+        audioPlayerRef.current = new Audio();
+      }
+      const player = audioPlayerRef.current;
+
+      const playNext = async (index: number) => {
+        if (audioAbortRef.current || index >= chunks.length) {
+          setIsSpeaking(false);
+          return;
+        }
+
+        const encoded = encodeURIComponent(chunks[index]);
+        // The URL routes through `vite.config.ts` to evade browser security origin blocks
+        const url = `/api/gtts?ie=UTF-8&q=${encoded}&tl=${ttsLang}&client=tw-ob`;
+        
+        player.src = url;
+        
+        player.onended = () => {
+          playNext(index + 1);
+        };
+        
+        player.onerror = () => {
+          console.error("Audio chunk failed to load.");
+          // Skip broken chunk and proceed silently
+          playNext(index + 1);
+        };
+
+        try {
+          await player.play();
+        } catch (err: any) {
+          if (err.name !== 'AbortError') {
+            console.error("Autoplay rejected by browser:", err);
+            setIsSpeaking(false);
+          }
+        }
+      };
+
+      // Set global abort interrupt
+      (window as any)._activeStopAudio = stopAllAudio;
+      
+      // Begin the playback sequence
+      playNext(0);
+
+    } catch (fallbackError) {
+      setIsSpeaking(false);
+    }
   };
+
+  useEffect(() => {
+    return () => {
+      // Ensure we immediately silence audio if the component dismounts
+      if ((window as any)._activeStopAudio) {
+        (window as any)._activeStopAudio();
+      }
+      stopAllAudio();
+    };
+  }, [stopAllAudio]);
 
   const processArticle = useCallback(async () => {
     if (!article?.url) return;
@@ -293,7 +460,7 @@ const NewsDetail = () => {
               </div>
             ) : null}
 
-            {/* Language Selector for IndicTrans2 translation */}
+            {/* Language Selector for translation */}
             <LanguageSelector
               selectedLang={selectedLang}
               onSelectLanguage={handleLanguageChange}

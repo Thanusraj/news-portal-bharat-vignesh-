@@ -37,6 +37,7 @@ const Profile = () => {
   const [language, setLanguage] = useState(profile?.language || "en");
   const [interests, setInterests] = useState<string[]>(profile?.interests || []);
   const [saving, setSaving] = useState(false);
+  const [photoError, setPhotoError] = useState(false);
 
   if (!profile || !user) {
     return <div className="min-h-screen flex items-center justify-center bg-background">Loading...</div>;
@@ -95,8 +96,13 @@ const Profile = () => {
             <div className="relative flex justify-between items-end -mt-12 mb-6">
               <div className="flex items-center gap-5">
                 <div className="relative">
-                  {user.photoURL ? (
-                    <img src={user.photoURL} alt="Profile" className="w-24 h-24 rounded-full object-cover border-4 border-card shadow-md" />
+                  {user.photoURL && !photoError ? (
+                    <img 
+                      src={user.photoURL} 
+                      alt="Profile" 
+                      className="w-24 h-24 rounded-full object-cover border-4 border-card shadow-md"
+                      onError={() => setPhotoError(true)}
+                    />
                   ) : (
                     <div className="w-24 h-24 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-4xl font-semibold border-4 border-card shadow-md">
                       {user.email?.charAt(0).toUpperCase()}

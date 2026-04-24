@@ -1,6 +1,6 @@
 import { memo, useState } from "react";
 import { useNewsImage } from "@/hooks/useNewsImage";
-import { Heart, Bookmark, Share2, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Heart, Bookmark, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { NewsArticle } from "@/services/newsApi";
 import { formatDistanceToNow } from "date-fns";
@@ -36,13 +36,6 @@ const NewsCard = ({ article, size = "medium", onClick, imagePriority = "low" }: 
   const timeAgo = formatDistanceToNow(new Date(article.publishedAt), { addSuffix: true });
   const loadingAttr = imagePriority === "high" ? "eager" : "lazy";
   const fetchPriorityAttr = imagePriority === "high" ? "high" : "low";
-
-  const handleShare = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (navigator.share) {
-      navigator.share({ title: article.title, url: article.url }).catch(() => {});
-    }
-  };
 
   // ═══════════ FEATURED-MAIN VARIANT ═══════════
   if (size === "featured-main") {
@@ -92,19 +85,20 @@ const NewsCard = ({ article, size = "medium", onClick, imagePriority = "low" }: 
               </span>
               <div className="flex gap-2">
                 <button
-                  onClick={handleShare}
-                  className="p-2.5 rounded-full bg-black/40 border border-white/10 text-white hover:bg-black/60 transition-colors backdrop-blur-sm"
-                  title="Share"
-                >
-                  <Share2 className="w-4 h-4" />
-                </button>
-                <button
                   onClick={(e) => { e.stopPropagation(); toggleLike(article); }}
                   className={`p-2.5 rounded-full border border-white/10 backdrop-blur-sm transition-colors ${
                     isLiked ? "bg-rose-500/80 text-white" : "bg-black/40 text-white hover:bg-black/60"
                   }`}
                 >
                   <Heart className={`w-4 h-4 ${isLiked ? "fill-current" : ""}`} />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleSave(article); }}
+                  className={`p-2.5 rounded-full border border-white/10 backdrop-blur-sm transition-colors ${
+                    isSaved ? "bg-indigo-500/80 text-white" : "bg-black/40 text-white hover:bg-black/60"
+                  }`}
+                >
+                  <Bookmark className={`w-4 h-4 ${isSaved ? "fill-current" : ""}`} />
                 </button>
               </div>
             </div>
@@ -168,6 +162,14 @@ const NewsCard = ({ article, size = "medium", onClick, imagePriority = "low" }: 
                 }`}
               >
                 <Heart className={`w-3.5 h-3.5 ${isLiked ? "fill-current" : ""}`} />
+              </button>
+                <button
+                onClick={(e) => { e.stopPropagation(); toggleSave(article); }}
+                className={`p-1.5 rounded-full backdrop-blur-md transition-colors ${
+                  isSaved ? "bg-white/20 text-indigo-400" : "bg-white/10 text-white hover:bg-white/20"
+                }`}
+              >
+                <Bookmark className={`w-3.5 h-3.5 ${isSaved ? "fill-current" : ""}`} />
               </button>
               </div>
             </div>
@@ -280,11 +282,14 @@ const NewsCard = ({ article, size = "medium", onClick, imagePriority = "low" }: 
             </h3>
             <div className="flex items-center justify-between">
                <span className="text-[10px] text-gray-300 font-medium truncate pr-2">{article.source.name}</span>
-               <div className="flex gap-1">
-                 <button onClick={(e) => { e.stopPropagation(); toggleLike(article); }} className={`p-1.5 rounded-full backdrop-blur-md bg-white/10 transition-colors hover:bg-white/20 ${isLiked ? "text-red-400" : "text-white"}`}>
-                <Heart className={`w-3.5 h-3.5 ${isLiked ? "fill-current" : ""}`} />
-              </button>
-              </div>
+<div className="flex gap-1">
+                  <button onClick={(e) => { e.stopPropagation(); toggleLike(article); }} className={`p-1.5 rounded-full backdrop-blur-md bg-white/10 transition-colors hover:bg-white/20 ${isLiked ? "text-red-400" : "text-white"}`}>
+                 <Heart className={`w-3.5 h-3.5 ${isLiked ? "fill-current" : ""}`} />
+               </button>
+                  <button onClick={(e) => { e.stopPropagation(); toggleSave(article); }} className={`p-1.5 rounded-full backdrop-blur-md bg-white/10 transition-colors hover:bg-white/20 ${isSaved ? "text-indigo-400" : "text-white"}`}>
+                 <Bookmark className={`w-3.5 h-3.5 ${isSaved ? "fill-current" : ""}`} />
+               </button>
+               </div>
             </div>
           </div>
         </div>

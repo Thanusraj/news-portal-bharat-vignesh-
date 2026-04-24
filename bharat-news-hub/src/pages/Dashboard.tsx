@@ -189,7 +189,7 @@ const Dashboard = ({ onPersonalLoadComplete }: DashboardProps) => {
 
       const globalPromise = (async () => {
         try {
-          const world = await fetchWorldNews(12, "fast");
+          const world = await fetchWorldNews(language, "in", 12, "fast");
           if (cancelled || secondaryRunIdRef.current !== runId) return;
           let filteredWorld = world.filter((a) => a.url && !personalUrls.has(a.url));
           if (filteredWorld.length === 0 && world.length > 0) filteredWorld = world;
@@ -205,7 +205,7 @@ const Dashboard = ({ onPersonalLoadComplete }: DashboardProps) => {
 
       const eventsPromise = (async () => {
         try {
-          const events = await fetchEventsNews(12);
+          const events = await fetchEventsNews(language, "in", 12);
           if (cancelled || secondaryRunIdRef.current !== runId) return;
           let filteredEvents = events.filter((a) => a.url && !personalUrls.has(a.url));
           if (filteredEvents.length === 0 && events.length > 0) filteredEvents = events;

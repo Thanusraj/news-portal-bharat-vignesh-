@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Globe, Check, Loader2 } from "lucide-react";
 
 /**
- * Language options matching IndicTrans2 FLORES codes.
- * Each language maps to a key used by the Python translation API.
+ * Language options.
+ * Each language maps to a key used by the translation API.
  */
 const LANGUAGES = [
   { key: "english",   label: "English",   native: "English",    icon: "🇬🇧" },

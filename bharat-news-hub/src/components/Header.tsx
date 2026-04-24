@@ -22,6 +22,7 @@ const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [forceFloating, setForceFloatingState] = useState(globalForceFloating);
+  const [navPhotoError, setNavPhotoError] = useState(false);
 
   useEffect(() => {
     forceFloatingListeners.add(setForceFloatingState);
@@ -229,8 +230,13 @@ const Header = () => {
                     : "text-white/50 hover:text-white/90 hover:bg-white/5"
                 }`}
               >
-                {link.to === "/profile" && user?.photoURL && (
-                  <img src={user.photoURL} alt="" className="w-4 h-4 rounded-full inline mr-1.5 border border-white/20 object-cover align-middle" />
+                {link.to === "/profile" && user?.photoURL && !navPhotoError && (
+                  <img 
+                    src={user.photoURL} 
+                    alt="" 
+                    className="w-4 h-4 rounded-full inline mr-1.5 border border-white/20 object-cover align-middle" 
+                    onError={() => setNavPhotoError(true)}
+                  />
                 )}
                 {link.label}
                 {isActive && (

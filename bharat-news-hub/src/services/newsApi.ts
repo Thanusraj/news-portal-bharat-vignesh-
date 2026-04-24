@@ -19,6 +19,12 @@ let currentKeyIndex = 0;
 const NEWSAPI_KEY = import.meta.env.VITE_NEWSAPI_KEY || "";
 const NEWSAPI_BASE_URL = "/api/newsapi/v2";
 
+const THENEWSAPI_KEY = import.meta.env.VITE_THENEWSAPI_KEY || "DZ4qZGob3z1YzBSr1V9nY69XJS5PSmluvUJgXQNJ";
+const THENEWSAPI_BASE_URL = "/api/thenewsapi/v1/news";
+
+const WORLDNEWS_KEY = import.meta.env.VITE_WORLDNEWS_KEY || "02f6b4d0da1e45768bf3d2704c710c5e";
+const WORLDNEWS_BASE_URL = "/api/worldnewsapi";
+
 const BASE_URL = "/api/gnews/api/v4";
 
 export interface NewsArticle {
@@ -215,15 +221,75 @@ async function requestNewsDataIo(baseUrl: string): Promise<NewsArticle[]> {
   }
 }
 
+async function requestTheNewsApi(baseUrl: string): Promise<NewsArticle[]> {
+  const cached = responseCache.get(baseUrl);
+  if (cached && Date.now() - cached.at < RESPONSE_TTL_MS) return cached.articles;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  try {
+    const finalUrl = baseUrl.includes('?') ? `${baseUrl}&api_token=${THENEWSAPI_KEY}` : `${baseUrl}?api_token=${THENEWSAPI_KEY}`;
+    const res = await fetch(finalUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error(`TheNewsApi error ${res.status}`);
+    const data = await res.json();
+    const articles: NewsArticle[] = (data.data || []).map((a: any) => ({
+      title: a.title || "",
+      description: a.description || a.snippet || "",
+      content: a.description || a.snippet || "",
+      url: a.url || "",
+      image: a.image_url || null,
+      publishedAt: a.published_at || new Date().toISOString(),
+      source: { name: a.source || "Unknown", url: a.url || "" }
+    }));
+    responseCache.set(baseUrl, { at: Date.now(), articles });
+    return articles;
+  } catch (e) {
+    clearTimeout(timeoutId);
+    throw e;
+  }
+}
+
+async function requestWorldNewsApi(baseUrl: string): Promise<NewsArticle[]> {
+  const cached = responseCache.get(baseUrl);
+  if (cached && Date.now() - cached.at < RESPONSE_TTL_MS) return cached.articles;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  try {
+    const finalUrl = baseUrl.includes('?') ? `${baseUrl}&api-key=${WORLDNEWS_KEY}` : `${baseUrl}?api-key=${WORLDNEWS_KEY}`;
+    const res = await fetch(finalUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) throw new Error(`WorldNewsApi error ${res.status}`);
+    const data = await res.json();
+    const articles: NewsArticle[] = (data.news || []).map((a: any) => ({
+      title: a.title || "",
+      description: a.text ? a.text.substring(0, 200) : "",
+      content: a.text || "",
+      url: a.url || "",
+      image: a.image || null,
+      publishedAt: a.publish_date || new Date().toISOString(),
+      source: { name: a.author || "Unknown", url: a.url || "" }
+    }));
+    responseCache.set(baseUrl, { at: Date.now(), articles });
+    return articles;
+  } catch (e) {
+    clearTimeout(timeoutId);
+    throw e;
+  }
+}
+
 async function fetchMultiSourced(
   gnewsUrl: string | null, 
   newsApiUrl: string | null,
-  newsDataUrl: string | null
+  newsDataUrl: string | null,
+  theNewsApiUrl: string | null = null,
+  worldNewsUrl: string | null = null
 ): Promise<NewsArticle[]> {
   const promises = [];
   if (gnewsUrl) promises.push(requestGNews(gnewsUrl));
   if (newsApiUrl) promises.push(requestNewsApi(newsApiUrl));
   if (newsDataUrl) promises.push(requestNewsDataIo(newsDataUrl));
+  if (theNewsApiUrl) promises.push(requestTheNewsApi(theNewsApiUrl));
+  if (worldNewsUrl) promises.push(requestWorldNewsApi(worldNewsUrl));
 
   const results = await Promise.allSettled(promises);
   const articles: NewsArticle[] = [];
@@ -269,15 +335,22 @@ export async function fetchNewsByTopic(
   const gnewsUrl = `${BASE_URL}/top-headlines?category=${topicLower}&lang=${lang}&country=${country}&max=${max}`;
   let newsApiUrl: string | null = null;
   let newsDataUrl: string | null = null;
+  let theNewsApiUrl: string | null = null;
+  let worldNewsUrl: string | null = null;
   
   if (lang === "en") {
     if (["business", "entertainment", "general", "health", "science", "sports", "technology"].includes(topicLower)) {
       newsApiUrl = `${NEWSAPI_BASE_URL}/top-headlines?category=${topicLower}&language=${lang}&country=${country}&pageSize=${max}`;
+      theNewsApiUrl = `${THENEWSAPI_BASE_URL}/top?categories=${topicLower==='technology'?'tech':topicLower}&locale=${country}&language=${lang}&limit=${max}`;
     } else if (topicLower === "world") {
       newsApiUrl = `${NEWSAPI_BASE_URL}/everything?q=world&language=${lang}&sortBy=publishedAt&pageSize=${max}`;
+      theNewsApiUrl = `${THENEWSAPI_BASE_URL}/all?search=world&language=${lang}&limit=${max}`;
+      worldNewsUrl = `${WORLDNEWS_BASE_URL}/search-news?text=world&language=${lang}&number=${max}`;
     } else if (topicLower === "nation") {
       const query = country === "in" ? "India" : "national news";
       newsApiUrl = `${NEWSAPI_BASE_URL}/everything?q=${encodeURIComponent(query)}&language=${lang}&sortBy=publishedAt&pageSize=${max}`;
+      theNewsApiUrl = `${THENEWSAPI_BASE_URL}/all?search=${encodeURIComponent(query)}&language=${lang}&limit=${max}`;
+      worldNewsUrl = `${WORLDNEWS_BASE_URL}/search-news?source-country=${country}&language=${lang}&number=${max}`;
     }
 
     const validNewsDataCategories = ["business", "entertainment", "health", "science", "sports", "technology", "world"];
@@ -286,10 +359,14 @@ export async function fetchNewsByTopic(
     } else if (topicLower === "general" || topicLower === "nation") {
       newsDataUrl = `${NEWSDATA_BASE_URL}/news?language=${lang}&country=${country}`;
     }
+    
+    if (!worldNewsUrl && topicLower !== "world" && topicLower !== "nation") {
+         worldNewsUrl = `${WORLDNEWS_BASE_URL}/search-news?source-country=${country}&language=${lang}&number=${max}`;
+    }
   }
 
   // Compile the live API promise but don't await yet
-  const liveApiPromise = fetchMultiSourced(gnewsUrl, newsApiUrl, newsDataUrl);
+  const liveApiPromise = fetchMultiSourced(gnewsUrl, newsApiUrl, newsDataUrl, theNewsApiUrl, worldNewsUrl);
   // Compile the Supabase promise
   const dbPromise = fetchFromSupabaseFallback(max, topicLower);
 
@@ -324,8 +401,10 @@ export async function fetchTopHeadlines(
     const gnewsUrl = `${BASE_URL}/top-headlines?lang=${lang}&country=${country}&max=${max}`;
     const newsApiUrl = lang === "en" ? `${NEWSAPI_BASE_URL}/top-headlines?language=${lang}&country=${country}&pageSize=${max}` : null;
     const newsDataUrl = lang === "en" ? `${NEWSDATA_BASE_URL}/news?language=${lang}&country=${country}` : null;
+    const theNewsApiUrl = lang === "en" ? `${THENEWSAPI_BASE_URL}/top?locale=${country}&language=${lang}&limit=${max}` : null;
+    const worldNewsUrl = lang === "en" ? `${WORLDNEWS_BASE_URL}/search-news?source-country=${country}&language=${lang}&number=${max}` : null;
     
-    const liveApiPromise = fetchMultiSourced(gnewsUrl, newsApiUrl, newsDataUrl);
+    const liveApiPromise = fetchMultiSourced(gnewsUrl, newsApiUrl, newsDataUrl, theNewsApiUrl, worldNewsUrl);
     
     const results = await Promise.allSettled([dbPromise, liveApiPromise]);
     const dbData = results[0].status === 'fulfilled' ? results[0].value : [];
@@ -352,13 +431,15 @@ export async function fetchTopHeadlines(
   }
 }
 
-export async function fetchWorldNews(max = 10, mode: NewsFetchMode = "default"): Promise<NewsArticle[]> {
-  const gnewsUrl = `${BASE_URL}/top-headlines?category=world&lang=en&country=us&max=${max}`;
-  const newsApiUrl = `${NEWSAPI_BASE_URL}/everything?q=world&language=en&sortBy=publishedAt&pageSize=${max}`;
-  const newsDataUrl = `${NEWSDATA_BASE_URL}/news?category=world&language=en`;
+export async function fetchWorldNews(lang = "en", country = "in", max = 10, mode: NewsFetchMode = "default"): Promise<NewsArticle[]> {
+  const gnewsUrl = `${BASE_URL}/top-headlines?category=world&lang=${lang}&country=us&max=${max}`;
+  const newsApiUrl = `${NEWSAPI_BASE_URL}/everything?q=world&language=${lang}&sortBy=publishedAt&pageSize=${max}`;
+  const newsDataUrl = `${NEWSDATA_BASE_URL}/news?category=world&language=${lang}`;
+  const theNewsApiUrl = `${THENEWSAPI_BASE_URL}/all?search=world&language=${lang}&limit=${max}`;
+  const worldNewsUrl = `${WORLDNEWS_BASE_URL}/search-news?text=world&language=${lang}&number=${max}`;
   
   try {
-    const liveApiPromise = fetchMultiSourced(gnewsUrl, newsApiUrl, newsDataUrl);
+    const liveApiPromise = fetchMultiSourced(gnewsUrl, newsApiUrl, newsDataUrl, theNewsApiUrl, worldNewsUrl);
     const dbPromise = fetchFromSupabaseFallback(max, "world");
     
     const results = await Promise.allSettled([dbPromise, liveApiPromise]);
@@ -369,17 +450,17 @@ export async function fetchWorldNews(max = 10, mode: NewsFetchMode = "default"):
     if (merged.length > 0) return merged.slice(0, max);
     
     if (mode === "fast") return [];
-    return await searchNews("world news", max);
+    return await searchNews("world news", max, lang, country);
   } catch (e) {
     console.warn("[NewsApi] Fetch for world news failed:", e);
     return [];
   }
 }
 
-export async function fetchEventsNews(max = 12): Promise<NewsArticle[]> {
+export async function fetchEventsNews(lang = "en", country = "in", max = 12): Promise<NewsArticle[]> {
   try {
-    const query = "India AND (upcoming OR event OR festival OR schedule OR launch)";
-    return await searchNews(query, max);
+    const query = country === "in" ? "India AND (upcoming OR event OR festival OR schedule OR launch)" : "(upcoming OR event OR festival OR schedule OR launch)";
+    return await searchNews(query, max, lang, country);
   } catch (e) {
     console.error("fetchEventsNews error:", e);
     return [];
@@ -395,9 +476,11 @@ export async function searchNews(
   const gnewsUrl = `${BASE_URL}/search?q=${encodeURIComponent(query)}&lang=${lang}&country=${country}&max=${max}`;
   const newsApiUrl = `${NEWSAPI_BASE_URL}/everything?q=${encodeURIComponent(query)}&language=${lang}&sortBy=publishedAt&pageSize=${max}`;
   const newsDataUrl = `${NEWSDATA_BASE_URL}/news?q=${encodeURIComponent(query)}&language=${lang}&country=${country}`;
+  const theNewsApiUrl = `${THENEWSAPI_BASE_URL}/all?search=${encodeURIComponent(query)}&language=${lang}&limit=${max}`;
+  const worldNewsUrl = `${WORLDNEWS_BASE_URL}/search-news?text=${encodeURIComponent(query)}&source-country=${country}&language=${lang}&number=${max}`;
   
   try {
-    const liveApiPromise = fetchMultiSourced(gnewsUrl, newsApiUrl, newsDataUrl);
+    const liveApiPromise = fetchMultiSourced(gnewsUrl, newsApiUrl, newsDataUrl, theNewsApiUrl, worldNewsUrl);
     const dbPromise = fetchFromSupabaseFallback(max, query);
     
     const results = await Promise.allSettled([dbPromise, liveApiPromise]);
